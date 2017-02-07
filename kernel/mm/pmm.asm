@@ -105,11 +105,15 @@ pmm_mark_page_used:
 pmm_mark_free:
 	pusha
 
+	cmp ecx, 0
+	je .done
+
 .loop:
 	call pmm_mark_page_free
 	add eax, 4096
 	loop .loop
 
+.done:
 	popa
 	ret
 

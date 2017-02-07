@@ -489,6 +489,14 @@ kill_task:
 	mov edi, [.task]
 	shl edi, 5
 	add edi, [task_structure]
+
+	push edi		; edi = task information
+
+	mov eax, [edi+TASK_PMEM_BASE]
+	mov ecx, [edi+TASK_MEM_SIZE]
+	call pmm_free		; free the task's memory
+
+	pop edi
 	xor al, al
 	mov ecx, TASK_SIZE
 	rep stosb
@@ -507,7 +515,7 @@ align 4
 ; Kills all running tasks
 
 kill_all:
-	mov [.current_task], 0
+	mov [.current_task], 1		; don't kill the idle task
 
 .loop:
 	cmp [.current_task], MAXIMUM_TASKS
