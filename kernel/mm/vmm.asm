@@ -78,7 +78,7 @@ vmm_init:
 ; In\	ECX = Page count
 ; In\	DL = Flags
 ; Out\	Nothing
-
+align 32
 vmm_map_memory:
 	pusha
 	and eax, 0xFFFFF000
@@ -115,6 +115,7 @@ vmm_map_memory:
 	popa
 	ret
 
+align 4
 .virtual			dd 0
 .physical			dd 0
 .count				dd 0
@@ -125,7 +126,7 @@ vmm_map_memory:
 ; In\	EAX = Virtual address
 ; In\	ECX = Count
 ; Out\	Nothing
-
+align 32
 vmm_unmap_memory:
 	and eax, 0xFFFFF000
 	mov ebx, 0
@@ -138,7 +139,7 @@ vmm_unmap_memory:
 ; In\	EAX = Virtual address
 ; Out\	EAX = 4k-aligned Physical address
 ; Out\	DL = Page flags
-
+align 32
 vmm_get_page:
 	and eax, 0xFFFFF000
 	shr eax, 10
@@ -155,7 +156,7 @@ vmm_get_page:
 ; In\	EAX = Starting address
 ; In\	ECX = Page count
 ; Out\	EAX = Address of free virtual memory, unmapped, 0 on error
-
+align 32
 vmm_alloc_pages:
 	mov [.return], eax
 	mov [.tmp], eax
@@ -191,6 +192,7 @@ vmm_alloc_pages:
 	mov eax, [.return]
 	ret
 
+align 4
 .return				dd 0
 .tmp				dd 0
 .count				dd 0
@@ -202,7 +204,7 @@ vmm_alloc_pages:
 ; In\	ECX = Pages
 ; In\	DL = Page flags
 ; Out\	EAX = Memory address, 0 on error
-
+align 32
 vmm_alloc:
 	mov [.count], ecx
 	mov [.flags], dl
@@ -242,6 +244,7 @@ vmm_alloc:
 	mov eax, 0
 	ret
 
+align 4
 .return				dd 0
 .physical			dd 0
 .count				dd 0
@@ -252,7 +255,7 @@ vmm_alloc:
 ; In\	EAX = Address
 ; In\	ECX = Pages to free
 ; Out\	Nothing
-
+align 32
 vmm_free:
 	mov [.address], eax
 	mov [.count], ecx
@@ -272,6 +275,7 @@ vmm_free:
 .quit:
 	ret
 
+align 4
 .address			dd 0
 .count				dd 0
 

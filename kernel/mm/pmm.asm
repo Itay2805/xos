@@ -4,6 +4,7 @@
 
 use32
 
+align 4
 total_memory_bytes		dd 0
 total_memory_kb			dd 0
 total_memory_pages		dd 0
@@ -60,7 +61,7 @@ pmm_init:
 ; Marks a physical page as free
 ; In\	EAX = Address
 ; Out\	Nothing
-
+align 32
 pmm_mark_page_free:
 	pusha
 	shr eax, 12
@@ -80,7 +81,7 @@ pmm_mark_page_free:
 ; Marks a physical page as used
 ; In\	EAX = Address
 ; Out\	Nothing
-
+align 32
 pmm_mark_page_used:
 	pusha
 	shr eax, 12
@@ -101,7 +102,7 @@ pmm_mark_page_used:
 ; In\	EAX = Address
 ; In\	ECX = Count
 ; Out\	Nothing
-
+align 32
 pmm_mark_free:
 	pusha
 
@@ -122,7 +123,7 @@ pmm_mark_free:
 ; In\	EAX = Address
 ; In\	ECX = Count
 ; Out\	Nothing
-
+align 32
 pmm_mark_used:
 	pusha
 
@@ -138,7 +139,7 @@ pmm_mark_used:
 ; Allocates a single physical page
 ; In\	Nothing
 ; Out\	EAX = Address of free page, 0 if not found
-
+align 32
 pmm_alloc_page:
 	mov esi, pmm_bitmap
 
@@ -172,7 +173,7 @@ pmm_alloc_page:
 ; Checks is a page is free
 ; In\	EAX = Address
 ; Out\	DL = 0 if free, 1 if used
-
+align 32
 pmm_is_page_free:
 	cmp eax, [total_memory_bytes]
 	jge .used
@@ -191,7 +192,7 @@ pmm_is_page_free:
 ; Allocates contiguous physical memory
 ; In\	ECX = Page count
 ; Out\	EAX = Address of memory, 0 on error
-
+align 32
 pmm_alloc:
 	mov [.address], 0
 	mov [.count], ecx
@@ -234,6 +235,7 @@ pmm_alloc:
 	push .no_msg
 	jmp panic
 
+align 4
 .address			dd 0
 .count				dd 0
 .free_pages			dd 0
@@ -244,7 +246,7 @@ pmm_alloc:
 ; In\	EAX = Address
 ; In\	ECX = Page count
 ; Out\	Nothing
-
+align 32
 pmm_free:
 	call pmm_mark_free
 	ret

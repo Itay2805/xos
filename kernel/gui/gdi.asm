@@ -1067,10 +1067,10 @@ alpha_blend_colors_packed:
 	mov byte[.intensity], dl
 
 	;movdqa xmm2, dqword[.mask]
-	andpd xmm0, xmm2
-	andpd xmm1, xmm2
-	andpd xmm6, xmm2
-	andpd xmm7, xmm2
+	pand xmm0, xmm2
+	pand xmm1, xmm2
+	pand xmm6, xmm2
+	pand xmm7, xmm2
 
 	psrlq xmm0, [.intensity]	; shift foreground by intensity
 	psrlq xmm6, [.intensity]

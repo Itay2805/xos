@@ -48,11 +48,13 @@ kmalloc:
 	ret
 
 .no:
-	mov eax, 0
-	ret
+	push .no_msg
+	jmp panic
 
+align 4
 .pages				dd 0
 .return				dd 0
+.no_msg				db "kmalloc: kernel heap overflowed to user heap.",0
 
 ; kfree:
 ; Frees kernel memory
@@ -96,6 +98,7 @@ malloc:
 	mov eax, 0
 	ret
 
+align 4
 .pages				dd 0
 .return				dd 0
 
