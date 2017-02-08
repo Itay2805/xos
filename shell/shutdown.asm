@@ -31,6 +31,10 @@ shutdown_dialog:
 	call xwidget_create_window
 	mov [shutdown_handle], eax
 
+	; lock
+	mov eax, [shutdown_handle]
+	call xwidget_lock
+
 	; set window color
 	mov eax, [shutdown_handle]
 	mov ebx, 0x222222
@@ -63,6 +67,10 @@ shutdown_dialog:
 	mov esi, restart_text
 	call xwidget_create_gbutton
 	mov [restart_button_handle], eax
+
+	; unlock
+	mov eax, [shutdown_handle]
+	call xwidget_unlock
 
 .wait:
 	call xwidget_wait_event

@@ -17,7 +17,8 @@ use32
 ; {
 ;	u8 id;		// XWIDGET_CPNT_WINDOW
 ;	u32 color;
-;	u8 reserved[251];
+;	u8 locked;	// 1 = locked, 0 = not locked
+;	u8 reserved[250];
 ; }
 ;
 ;
@@ -33,6 +34,37 @@ xwidget_window_set_color:
 	add eax, xwidget_windows_data
 	mov eax, [eax+4]	; components
 	mov [eax+1], ebx	; window color
+
+	ret
+
+; xwidget_lock:
+; Prevents window redraws
+; In\	EAX = Window handle
+; Out\	Nothing
+
+xwidget_lock:
+	shl eax, 3
+	add eax, xwidget_windows_data
+	mov ebx, [eax+4]	; components
+	mov byte[ebx+5], 1	; locked flag
+
+	ret
+
+; xwidget_unlock:
+; Allows a window to be redrawn
+; In\	EAX = Window handle
+; Out\	Nothing
+
+xwidget_unlock:
+	push eax
+
+	shl eax, 3
+	add eax, xwidget_windows_data
+	mov ebx, [eax+4]	; components
+	mov byte[ebx+5], 0	; locked flag
+
+	pop eax
+	call xwidget_redraw
 
 	ret
 
@@ -84,7 +116,12 @@ xwidget_redraw:
 	mov [.components], ebx
 
 	add ebx, 256*256
-	mov [.components_end], ebx 
+	mov [.components_end], ebx
+
+	; is the window locked?
+	mov edi, [.components]
+	cmp byte[edi+5], 1		; locked?
+	je .quit2			; yep -- don't redraw the window
 
 	; first clear the window
 	mov ebp, XOS_WM_CLEAR
@@ -282,6 +319,8 @@ xwidget_redraw:
 	; request a redraw from the kernel
 	mov ebp, XOS_WM_REDRAW
 	int 0x60
+
+.quit2:
 	ret
 
 align 4

@@ -134,6 +134,10 @@ open_menu:
 	call xwidget_create_window
 	mov [menu_window_handle], eax
 
+	; lock
+	mov eax, [menu_window_handle]
+	call xwidget_lock
+
 	mov eax, [menu_window_handle]
 	mov cx, 4
 	mov dx, [menu_height]
@@ -165,12 +169,17 @@ open_menu:
 	mov edx, [menu_entries]
 	sub edx, 2
 	cmp ecx, edx
-	jg .hang
+	jg .draw_finish
 
 	mov ecx, [.current_entry]
 	call draw_menu_entry
 	inc [.current_entry]
 	jmp .draw_loop
+
+.draw_finish:
+	; unlock
+	mov eax, [menu_window_handle]
+	call xwidget_unlock
 
 .hang:
 	call xwidget_wait_event

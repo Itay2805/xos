@@ -4,8 +4,7 @@
 
 use32
 
-TIMER_FREQUENCY			= 100			; 100 Hz is way more than enough
-MAXIMUM_TASK_TIME		= TIMER_FREQUENCY / 10
+TIMER_FREQUENCY			= 1000
 
 align 8
 timer_ticks			dd 0

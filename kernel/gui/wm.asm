@@ -253,6 +253,7 @@ wm_find_handle:
 	mov eax, -1
 	ret
 
+align 4
 .handle			dd 0
 
 ; wm_get_window:
@@ -356,11 +357,13 @@ wm_make_handle:
 .finish:
 	ret
 
+align 2
 .x			dw 0
 .y			dw 0
 .width			dw 0
 .height			dw 0
 .flags			dw 0
+align 4
 .framebuffer		dd 0
 
 ; wm_create_window:
@@ -452,11 +455,13 @@ wm_create_window:
 	mov eax, -1
 	ret
 
+align 2
 .x			dw 0
 .y			dw 0
 .width			dw 0
 .height			dw 0
 .flags			dw 0
+align 4
 .handle			dd 0
 .framebuffer		dd 0
 .title			dd 0
@@ -516,16 +521,15 @@ wm_detect_window:
 	mov eax, [.handle]
 	ret
 
-align 32
 .next:
 	dec [.handle]
 	jmp .loop
 
-align 32
 .no:
 	mov eax, -1
 	ret
 
+align 4
 .handle			dd 0
 .x			dw 0
 .y			dw 0
@@ -623,9 +627,6 @@ wm_redraw:
 	mov ecx, [window_inactive_title]
 	call set_text_color
 
-	jmp .loop
-
-align 32
 .loop:
 	cmp [.handle], MAXIMUM_WINDOWS
 	jge .do_active_window

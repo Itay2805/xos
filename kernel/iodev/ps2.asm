@@ -802,15 +802,15 @@ redraw_mouse:
 
 	; only redraw if the mouse has actually been "moved"
 	; for click events, don't redraw -- it prevents flickering
-	;mov eax, [mouse_x]
-	;cmp eax, [mouse_old_x]
-	;jne .redraw
+	mov eax, [mouse_x]
+	cmp eax, [mouse_old_x]
+	jne .redraw
 
-	;mov eax, [mouse_y]
-	;cmp eax, [mouse_old_y]
-	;jne .redraw
+	mov eax, [mouse_y]
+	cmp eax, [mouse_old_y]
+	jne .redraw
 
-	;jmp .only_screen
+	ret
 
 .redraw:
 	call use_back_buffer

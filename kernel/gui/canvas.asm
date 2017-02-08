@@ -9,7 +9,7 @@ use32
 ; In\	EAX = Window handle
 ; In\	CX/DX = X/Y pos within the window
 ; Out\	EAX = Pixel offset, -1 on error
-
+align 32
 wm_pixel_offset:
 	mov [.x], cx
 	mov [.y], dx
@@ -26,9 +26,9 @@ wm_pixel_offset:
 	and esi, 0xFFFF		; window width
 	shl esi, 2		; a canvas always uses 32bpp regardless of the physical video mode
 
-	mov ebx, esi
+	;mov ebx, esi
 	movzx eax, [.y]
-	mul ebx
+	mul esi
 
 	movzx ebx, [.x]
 	shl ebx, 2
@@ -40,6 +40,7 @@ wm_pixel_offset:
 	mov eax, -1
 	ret
 
+align 2
 .x		dw 0
 .y		dw 0
 
@@ -47,7 +48,7 @@ wm_pixel_offset:
 ; Reads the mouse position according to the window position
 ; In\	EAX = Window handle
 ; Out\	CX/DX = X/Y pos, 0 on error
-
+align 32
 wm_read_mouse:
 	call wm_get_window
 	jc .error
@@ -89,7 +90,7 @@ wm_read_mouse:
 ; In\	EAX = Window handle
 ; In\	EBX = Color
 ; Out\	Nothing
-
+align 32
 wm_clear:
 	cli
 	mov [.color], ebx
@@ -112,6 +113,7 @@ wm_clear:
 	;call wm_redraw
 	ret
 
+align 4
 .color			dd 0
 .canvas			dd 0
 
@@ -122,7 +124,7 @@ wm_clear:
 ; In\	CX/DX = X/Y pos
 ; In\	ESI = Color
 ; Out\	Nothing
-
+align 32
 wm_render_char:
 	cli
 	and esi, 0xFFFFFF
@@ -192,10 +194,12 @@ wm_render_char:
 .done:
 	ret
 
+align 4
 .font_data		dd 0
 .offset			dd 0
 .column			db 0
 .row			db 0
+align 4
 .fg			dd 0
 .handle			dd 0
 .line			dd 0
@@ -207,7 +211,7 @@ wm_render_char:
 ; In\	CX/DX = X/Y pos
 ; In\	EBX = Color
 ; Out\	Nothing
-
+align 32
 wm_draw_text:
 	cli
 
@@ -254,11 +258,13 @@ wm_draw_text:
 	;call wm_redraw
 	ret
 
+align 4
 .handle			dd 0
 .x			dw 0
 .y			dw 0
 .ox			dw 0
 .oy			dw 0
+align 4
 .color			dd 0
 
 

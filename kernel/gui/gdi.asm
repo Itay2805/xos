@@ -29,8 +29,8 @@ redraw_screen:
 	mov ecx, [screen.screen_size_dqwords]
 
 .loop:
-	prefetchnta [esi+0x80]
-	prefetchnta [esi+0x100]
+	;prefetchnta [esi+0x80]
+	;prefetchnta [esi+0x100]
 
 	movdqa xmm0, [esi]
 	movdqa xmm1, [esi+0x10]
@@ -387,6 +387,7 @@ print_string:
 	call redraw_screen
 	ret
 
+align 2
 .x				dw 0
 .y				dw 0
 .ox				dw 0
@@ -438,6 +439,7 @@ print_string_transparent:
 	call redraw_screen
 	ret
 
+align 2
 .x				dw 0
 .y				dw 0
 .ox				dw 0
@@ -601,10 +603,10 @@ blit_buffer:
 	mov [.y], bx
 	mov [.width], si
 	mov [.height], di
-	add ax, si
-	add bx, di
-	mov [.end_x], ax
-	mov [.end_y], bx
+	;add ax, si
+	;add bx, di
+	;mov [.end_x], ax
+	;mov [.end_y], bx
 	mov [.buffer], edx
 	mov [.current_line], 0
 
@@ -618,9 +620,7 @@ blit_buffer:
 	mov edi, [.offset]
 	movzx ecx, [.width]
 	mov edx, [.transparent]
-	jmp .loop
 
-align 64
 .loop:
 	lodsd
 	cmp eax, edx
@@ -675,10 +675,10 @@ blit_buffer_no_transparent:
 	mov [.y], bx
 	mov [.width], si
 	mov [.height], di
-	add ax, si
-	add bx, di
-	mov [.end_x], ax
-	mov [.end_y], bx
+	;add ax, si
+	;add bx, di
+	;mov [.end_x], ax
+	;mov [.end_y], bx
 	mov [.buffer], edx
 	mov [.current_line], 0
 

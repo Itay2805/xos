@@ -37,6 +37,10 @@ main:
 	call xwidget_create_window
 	mov [window_handle], eax
 
+	; lock the interface to prevent flickering
+	mov eax, [window_handle]
+	call xwidget_lock
+
 	; create the interface
 	mov eax, [window_handle]
 	mov cx, 4
@@ -174,6 +178,10 @@ main:
 	mov ebx, 0x000000
 	call xwidget_create_label
 	mov [label_handle], eax
+
+	; unlock the window
+	mov eax, [window_handle]
+	call xwidget_unlock
 
 .wait:
 	; wait here for event
