@@ -603,11 +603,8 @@ wm_redraw:
 	call use_back_buffer
 	call lock_screen
 
-	mov ebx, [wm_color]
-	call clear_screen
-
 	cmp [wm_wallpaper], 0
-	je .start_windows
+	je .clear_screen
 
 	mov ax, 0
 	mov bx, 0
@@ -615,6 +612,12 @@ wm_redraw:
 	mov di, [wm_wallpaper_height]
 	mov edx, [wm_wallpaper]
 	call blit_buffer_no_transparent
+
+	jmp .start_windows
+
+.clear_screen:
+	mov ebx, [wm_color]
+	call clear_screen
 
 .start_windows:
 	; now move on to the windows
