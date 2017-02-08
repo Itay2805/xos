@@ -771,7 +771,7 @@ wm_redraw:
 
 .done:
 	;mov [wm_dirty], 0
-	call redraw_mouse	; this takes care of all the dirty work before actually drawing the cursor ;)
+	call redraw_mouse.redraw	; this takes care of all the dirty work before actually drawing the cursor ;)
 	ret
 
 .focused_transparent:
