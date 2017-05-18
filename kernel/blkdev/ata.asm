@@ -8,6 +8,8 @@ use32
 ; For PCI IDE, the base ports must be gotten from PCI BARs 0 and 1
 ATA_PRIMARY_BASE		= 0x1F0
 ATA_SECONDARY_BASE		= 0x170
+ATA_PRIMARY_STATUS		= 0x3F6
+ATA_SECONDARY_STATUS		= 0x376
 
 ; ATA Commands
 ATA_IDENTIFY			= 0xEC
@@ -18,8 +20,11 @@ ATA_WRITE_LBA28			= 0x30
 ATA_READ_LBA48			= 0x24
 ATA_WRITE_LBA48			= 0x34
 
+align 2
 ata_primary			dw ATA_PRIMARY_BASE
 ata_secondary			dw ATA_SECONDARY_BASE
+ata_primary_status		dw ATA_PRIMARY_STATUS
+ata_secondary_status		dw ATA_SECONDARY_STATUS
 
 pci_ide_bus			db 0
 pci_ide_dev			db 0
@@ -71,26 +76,47 @@ ata_detect:
 	and ax, 0xFFFC
 	mov [ata_primary], ax
 
-	jmp .detect_secondary_port
-
-.primary_standard:
-	mov [ata_primary], ATA_PRIMARY_BASE	; if BAR0 of PCI IDE is 0 or 1, then it uses standard isa ports
-
-.detect_secondary_port:
 	mov al, [pci_ide_bus]
 	mov ah, [pci_ide_dev]
 	mov bl, [pci_ide_function]
 	mov bh, PCI_BAR1
 	call pci_read_dword
 
+	and ax, 0xFFFC
+	mov [ata_primary_status], ax
+
+	jmp .detect_secondary_port
+
+.primary_standard:
+	mov [ata_primary], ATA_PRIMARY_BASE	; if BAR0 of PCI IDE is 0 or 1, then it uses standard isa ports
+	mov [ata_primary_status], ATA_PRIMARY_STATUS
+
+.detect_secondary_port:
+	mov al, [pci_ide_bus]
+	mov ah, [pci_ide_dev]
+	mov bl, [pci_ide_function]
+	mov bh, PCI_BAR2
+	call pci_read_dword
+
 	cmp ax, 1
 	jle .secondary_standard
 	and ax, 0xFFFC
 	mov [ata_secondary], ax
+
+	mov al, [pci_ide_bus]
+	mov ah, [pci_ide_dev]
+	mov bl, [pci_ide_function]
+	mov bh, PCI_BAR3
+	call pci_read_dword
+
+	and ax, 0xFFFC
+	mov [ata_secondary_status], ax
+
 	jmp .detect_devices
 
 .secondary_standard:
 	mov [ata_secondary], ATA_SECONDARY_BASE
+	mov [ata_secondary_status], ATA_SECONDARY_STATUS
 	jmp .detect_devices
 
 .isa:
@@ -102,7 +128,9 @@ ata_detect:
 
 	; use the default IO ports at 0x1F0 and 0x170
 	mov [ata_primary], ATA_PRIMARY_BASE
+	mov [ata_primary_status], ATA_PRIMARY_STATUS
 	mov [ata_secondary], ATA_SECONDARY_BASE
+	mov [ata_secondary_status], ATA_SECONDARY_STATUS
 
 .detect_devices:
 	mov esi, .ports_msg
@@ -178,25 +206,21 @@ ata_reset:
 	push edx
 	push eax
 
-	mov dx, [ata_primary]
-	add dx, 0x206
+	mov dx, [ata_primary_status]
 	mov al, 4
 	out dx, al
 
-	mov dx, [ata_secondary]
-	add dx, 0x206
+	mov dx, [ata_secondary_status]
 	out dx, al
 
 	call iowait
 	call iowait
 
-	mov dx, [ata_primary]
-	add dx, 0x206
+	mov dx, [ata_primary_status]
 	mov al, 0
 	out dx, al
 
-	mov dx, [ata_secondary]
-	add dx, 0x206
+	mov dx, [ata_secondary_status]
 	out dx, al
 
 	call iowait
