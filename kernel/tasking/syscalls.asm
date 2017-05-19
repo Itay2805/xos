@@ -4,7 +4,7 @@
 
 use32
 
-MAXIMUM_FUNCTION		= 0x0019
+MAXIMUM_FUNCTION		= 0x001C
 
 ; Function Table ;)
 align 16
@@ -35,6 +35,9 @@ api_table:
 	dd cmos_get_time	; 0x0017
 	dd shutdown		; 0x0018
 	dd reboot		; 0x0019
+	dd get_memory_usage	; 0x001A
+	dd enum_tasks		; 0x001B
+	dd get_uptime		; 0x001C	
 
 ; syscall_init:
 ; Installs the kernel API interrupt vector

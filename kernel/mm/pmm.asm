@@ -27,7 +27,7 @@ pmm_init:
 	shl eax, 10
 	mov [total_memory_bytes], eax
 
-	mov eax, [total_memory_kb]
+	mov eax, [total_memory_bytes]
 	shr eax, 12		; div 4096
 	mov [total_memory_pages], eax
 	mov [free_memory_pages], eax
@@ -251,7 +251,16 @@ pmm_free:
 	call pmm_mark_free
 	ret
 
+; get_memory_usage:
+; Gets memory usage
+; In\	Nothing
+; Out\	EAX = Total memory size in 4 KB pages
+; Out\	EBX = Used memory size in 4 KB pages
 
+get_memory_usage:
+	mov eax, [total_memory_pages]
+	mov ebx, [used_memory_pages]
+	ret
 
 
 

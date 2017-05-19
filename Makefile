@@ -13,6 +13,9 @@ all:
 	fasm calc/calc.asm out/calc.exe
 	fasm shell/shell.asm out/shell.exe
 	fasm edit/edit.asm out/edit.exe
+	fasm 2048/2048.asm out/2048.exe
+	fasm monitor/monitor.asm out/monitor.exe
+
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
 	dd if=out/rootnew.bin conv=notrunc bs=512 seek=64 of=disk.hdd
@@ -25,6 +28,8 @@ all:
 	dd if=wp/wp1.bmp conv=notrunc bs=512 seek=8000 of=disk.hdd
 	dd if=shell/shell.cfg conv=notrunc bs=512 seek=1020 of=disk.hdd
 	dd if=out/edit.exe conv=notrunc bs=512 seek=1082 of=disk.hdd
+	dd if=out/2048.exe conv=notrunc bs=512 seek=1200 of=disk.hdd
+	dd if=out/monitor.exe conv=notrunc bs=512 seek=1221 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usb

@@ -15,10 +15,11 @@ use32
 ; u32 mem_size;		// 14
 ; u32 reserved1;	// 18
 ; u32 reserved2;	// 1C
+; u8 filename[32];	// 20
 ; };
 ;
 ;
-; sizeof(task) = 32;
+; sizeof(task) = 64;
 ;
 
 TASK_STATE		= 0x00
@@ -30,10 +31,8 @@ TASK_PMEM_BASE		= 0x10
 TASK_MEM_SIZE		= 0x14
 TASK_RESERVED1		= 0x18
 TASK_RESERVED2		= 0x1C
-TASK_SIZE		= 0x20
-
-; Each Task Gets 1/10 Second Execution Time
-TASK_TIMESLICE		= TIMER_FREQUENCY/10
+TASK_FILENAME		= 0x20
+TASK_SIZE		= 0x40
 
 ; Task State Flags
 TASK_PRESENT		= 0x0001
@@ -86,12 +85,22 @@ tasking_init:
 	; this prevents user applications from taking PID 0
 	; PID 0 really is the Idle task, which just Halts the CPU in an infinite loop
 	mov word[eax], TASK_PRESENT
+	mov edi, eax
+	add edi, TASK_FILENAME
+	mov esi, .idle_task_name
+	call strlen
+	mov ecx, eax
+	rep movsb
+	xor al, al
+	stosb
+
 	mov [running_tasks], 1
 	mov [current_task], 0
 
 	ret
 
 .msg			db "Initialize multitasking...",10,0
+.idle_task_name		db "System Idle Task",0
 
 ; get_free_task:
 ; Finds a free task
@@ -109,7 +118,7 @@ get_free_task:
 	jge .no
 
 	mov eax, [.pid]
-	shl eax, 5	; mul 32
+	shl eax, 6	; mul 64
 	add eax, [task_structure]
 	test word[eax], TASK_PRESENT
 	jz .done
@@ -153,7 +162,7 @@ create_task_memory:
 
 	; create the task structure
 	mov edi, [.pid]
-	shl edi, 5		; mul 32
+	shl edi, 6		; mul 64
 	add edi, [task_structure]
 	mov word[edi], TASK_PRESENT
 
@@ -200,7 +209,7 @@ yield:
 	cmp eax, MAXIMUM_TASKS
 	jge .idle
 
-	shl eax, 5
+	shl eax, 6
 	add eax, [task_structure]
 	test word[eax], TASK_PRESENT
 	jz .next
@@ -238,7 +247,7 @@ yield:
 	;add esp, 4
 
 	movzx eax, [current_task]
-	shl eax, 5
+	shl eax, 6
 	add eax, [task_structure]
 
 	mov edx, [esp+4]		; eip
@@ -356,7 +365,7 @@ create_task:
 
 	; create the task structure
 	mov edi, [.pid]
-	shl edi, 5		; mul 32
+	shl edi, 6		; mul 64
 	add edi, [task_structure]
 	mov word[edi], TASK_PRESENT
 
@@ -376,6 +385,18 @@ create_task:
 	mov eax, [.pages]
 	mov [edi+TASK_MEM_SIZE], eax
 
+	add edi, TASK_FILENAME
+	push edi
+
+	mov esi, [.filename]
+	call strlen
+	mov ecx, eax
+
+	pop edi
+	rep movsb
+	xor al, al
+	stosb
+
 	; ready ;)
 	cmp [current_task], 0	; idle
 	je .finish
@@ -385,7 +406,7 @@ create_task:
 	call vmm_unmap_memory
 
 	movzx ebp, [current_task]
-	shl ebp, 5
+	shl ebp, 6
 	add ebp, [task_structure]
 	mov eax, TASK_LOAD_ADDR
 	mov ebx, [ebp+TASK_PMEM_BASE]
@@ -454,7 +475,7 @@ kill_task:
 	mov [.task], eax
 
 	; verify the task even exists
-	shl eax, 5
+	shl eax, 6
 	add eax, [task_structure]
 	test word[eax+TASK_STATE], TASK_PRESENT
 	jz .finish
@@ -487,7 +508,7 @@ kill_task:
 
 .kill_task:
 	mov edi, [.task]
-	shl edi, 5
+	shl edi, 6
 	add edi, [task_structure]
 
 	push edi		; edi = task information
@@ -532,6 +553,104 @@ kill_all:
 
 align 4
 .current_task			dd 0
+
+;
+; struct user_task_info
+; {
+;	u16 state;
+;	u16 parent_pid;
+;	u32 program_memory;
+;	u8 filename[32];
+; }
+;
+
+; enum_tasks:
+; Enumerates tasks
+; In\	AX = PID of task
+; In\	EDI = Pointer to structure to save task's info (in the table above)
+; Out\	EAX = 0 on success, EDI filled with information
+; Out\	EBX = PID of next available task that can be enumerated, 0 on end of tasks
+; Out\	ECX = Number of running tasks, including idle
+
+enum_tasks:
+	cmp ax, MAXIMUM_TASKS
+	jge .error
+
+	mov [.buffer], edi
+	mov [.pid], ax
+
+	and eax, 0xFFFF
+	shl eax, 6		; mul 64
+	add eax, [task_structure]
+
+	; copy the state of the task
+	mov edi, [.buffer]
+	mov dx, [eax+TASK_STATE]
+	test dx, TASK_PRESENT
+	jz .error
+
+	mov word[edi], dx
+	
+	mov dx, [eax+TASK_PARENT]
+	mov word[edi+2], dx
+
+	mov edx, [eax+TASK_MEM_SIZE]	; pages
+	shl edx, 12			; bytes
+	mov dword[edi+4], edx
+
+	; copy the filename
+	mov esi, eax
+	add esi, TASK_FILENAME
+	call strlen
+	mov ecx, eax
+	mov edi, [.buffer]
+	add edi, 8
+	rep movsb
+	xor al, al
+	stosb
+
+.find_next_task:
+	movzx eax, [.pid]
+	cmp eax, MAXIMUM_TASKS-1
+	jge .end_of_tasks
+
+	inc eax
+	mov [.pid], ax
+
+.find_next_task_loop:
+	movzx eax, [.pid]
+	cmp eax, MAXIMUM_TASKS
+	jge .end_of_tasks
+
+	shl eax, 6		; mul 64
+	add eax, [task_structure]
+	test word[eax+TASK_STATE], TASK_PRESENT
+	jnz .found_next_task
+
+	inc [.pid]
+	jmp .find_next_task_loop
+
+.found_next_task:
+	mov eax, 0			; success
+	movzx ebx, [.pid]		; next PID
+	movzx ecx, [running_tasks]	; task count
+	ret
+
+.end_of_tasks:
+	mov eax, 0
+	mov ebx, 0
+	movzx ecx, [running_tasks]
+	ret
+
+.error:
+	mov eax, 1
+	mov ebx, 0
+	movzx ecx, [running_tasks]
+	ret
+
+align 4
+.buffer				dd 0
+.pid				dw 0
 
 
 

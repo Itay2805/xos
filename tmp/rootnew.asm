@@ -138,4 +138,31 @@ edit:
 	.flags		db 0x01		; file present
 	.reserved:	times 13 db 0
 
+game2048:
+	.name		db "2048.exe",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 1200
+	.size_sects	dd 20
+	.size_bytes	dd 20*512
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
+
+sysmonitor:
+	.name		db "monitor.exe",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 1221
+	.size_sects	dd 50
+	.size_bytes	dd 50*512
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
 

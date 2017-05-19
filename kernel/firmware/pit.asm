@@ -68,9 +68,18 @@ pit_irq:
 	pop eax
 	iret
 
+; get_uptime:
+; Gets uptime
+; In\	Nothing
+; Out\	EAX = Uptime in 1/1000 seconds
+
+get_uptime:
+	mov eax, [timer_ticks]
+	ret
+
 ; pit_sleep:
 ; Sleeps using the PIT
-; In\	EAX = 1/100 seconds to wait
+; In\	EAX = 1/1000 seconds to wait
 ; Out\	Nothing
 
 pit_sleep:
