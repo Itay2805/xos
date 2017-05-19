@@ -1,5 +1,5 @@
-![](https://s28.postimg.org/kgj29w77x/main_interface.png)
-![](https://s23.postimg.org/j38d5uf2z/collage.jpg)
+![](https://s21.postimg.org/f81j1t2jb/collage.jpg)
+![](https://s15.postimg.org/9zxz9q5a3/collage.jpg)
 xOS is a 32-bit graphical operating system written for the PC entirely in assembly language. This results in faster execution, smaller program sizes and overall simplicity. The goal of xOS is to be fully functional, yet small and simple.  
 
 Features
