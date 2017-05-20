@@ -12,7 +12,6 @@ all:
 	fasm buttontest/buttontest.asm out/buttontest.exe
 	fasm calc/calc.asm out/calc.exe
 	fasm shell/shell.asm out/shell.exe
-	fasm edit/edit.asm out/edit.exe
 	fasm 2048/2048.asm out/2048.exe
 	fasm monitor/monitor.asm out/monitor.exe
 
@@ -27,7 +26,6 @@ all:
 	dd if=out/shell.exe conv=notrunc bs=512 seek=1000 of=disk.hdd
 	dd if=wp/wp1.bmp conv=notrunc bs=512 seek=8000 of=disk.hdd
 	dd if=shell/shell.cfg conv=notrunc bs=512 seek=1020 of=disk.hdd
-	dd if=out/edit.exe conv=notrunc bs=512 seek=1082 of=disk.hdd
 	dd if=out/2048.exe conv=notrunc bs=512 seek=1200 of=disk.hdd
 	dd if=out/monitor.exe conv=notrunc bs=512 seek=1221 of=disk.hdd
 

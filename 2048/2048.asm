@@ -116,14 +116,31 @@ process_keypress:
 	cmp ah, SCANCODE_UP
 	je .move_up
 
-	;cmp ah, SCANCODE_DOWN
-	;je .move_down
+	cmp ah, SCANCODE_DOWN
+	je .move_down
+
+	cmp ah, SCANCODE_LEFT
+	je .move_left
+
+	cmp ah, SCANCODE_RIGHT
+	je .move_right
 
 	ret
 
 .move_up:
 	call move_board_up
 	jmp .done
+
+.move_down:
+	call move_board_down
+	jmp .done
+
+.move_left:
+	call move_board_left
+	jmp .done
+
+.move_right:
+	call move_board_right
 
 .done:
 	call create_new_number
@@ -133,11 +150,43 @@ process_keypress:
 .scancode			db 0
 .character			db 0
 
+; move_board_down:
+; Moves the board down
+
+move_board_down:
+	mov ecx, 0
+	call move_column_down
+	mov ecx, 1
+	call move_column_down
+	mov ecx, 2
+	call move_column_down
+	mov ecx, 3
+	call move_column_down
+
+	mov ecx, 0
+	call add_column
+	mov ecx, 1
+	call add_column
+	mov ecx, 2
+	call add_column
+	mov ecx, 3
+	call add_column
+
+	mov ecx, 0
+	call move_column_down
+	mov ecx, 1
+	call move_column_down
+	mov ecx, 2
+	call move_column_down
+	mov ecx, 3
+	call move_column_down
+
+	ret
+
 ; move_board_up:
 ; Moves the board up
 
 move_board_up:
-	; first try the move the second row to the first, the third to the second, etc...
 	mov ecx, 0
 	call move_column_up
 	mov ecx, 1
@@ -166,6 +215,132 @@ move_board_up:
 	call move_column_up
 
 	ret
+
+; move_board_left:
+; Moves the board to the left
+
+move_board_left:
+	mov ecx, 0
+	call move_row_left
+	mov ecx, 1
+	call move_row_left
+	mov ecx, 2
+	call move_row_left
+	mov ecx, 3
+	call move_row_left
+
+	mov ecx, 0
+	call add_row
+	mov ecx, 1
+	call add_row
+	mov ecx, 2
+	call add_row
+	mov ecx, 3
+	call add_row
+
+	mov ecx, 0
+	call move_row_left
+	mov ecx, 1
+	call move_row_left
+	mov ecx, 2
+	call move_row_left
+	mov ecx, 3
+	call move_row_left
+
+	ret
+
+; move_board_right:
+; Moves the board to the right
+
+move_board_right:
+	mov ecx, 0
+	call move_row_right
+	mov ecx, 1
+	call move_row_right
+	mov ecx, 2
+	call move_row_right
+	mov ecx, 3
+	call move_row_right
+
+	mov ecx, 0
+	call add_row
+	mov ecx, 1
+	call add_row
+	mov ecx, 2
+	call add_row
+	mov ecx, 3
+	call add_row
+
+	mov ecx, 0
+	call move_row_right
+	mov ecx, 1
+	call move_row_right
+	mov ecx, 2
+	call move_row_right
+	mov ecx, 3
+	call move_row_right
+
+	ret
+
+; add_row:
+; Adds a row
+; In\	ECX = Row number
+; Out\	Nothing
+
+add_row:
+	shl ecx, 4
+	mov [.row_offset],ecx
+
+.start:
+	mov ecx, [.row_offset]
+	mov edi, board
+
+.check0:
+	mov eax, [edi+ecx]
+	cmp eax, [edi+ecx+4]
+	je .add0
+
+	jmp .check1
+
+.add0:
+	shl eax, 1
+	add [score], eax
+	mov [edi+ecx], eax
+	mov dword[edi+ecx+4], 0
+
+.check1:
+	add edi, 4
+	mov eax, [edi+ecx]
+	cmp eax, [edi+ecx+4]
+	je .add1
+
+	jmp .check2
+
+.add1:
+	shl eax, 1
+	add [score], eax
+	mov [edi+ecx], eax
+	mov dword[edi+ecx+4], 0
+
+.check2:
+	add edi, 4
+	mov eax, [edi+ecx]
+	cmp eax, [edi+ecx+4]
+	je .add2
+
+	jmp .done
+
+.add2:
+	shl eax, 1
+	add [score], eax
+	mov [edi+ecx], eax
+	mov dword[edi+ecx+4], 0
+
+.done:
+	ret
+
+align 4
+.row_offset				dd 0
 
 ; add_column:
 ; Adds a column
@@ -285,6 +460,181 @@ align 4
 .col				dd 0
 .col_offset			dd 0
 .times				dd 4
+
+; move_column_down:
+; Moves a column down
+; In\	ECX = Column number
+; Out\	Nothing
+
+move_column_down:
+	mov [.col], ecx
+
+	shl ecx, 2
+	mov [.col_offset], ecx
+
+	mov [.times], 4
+
+.start:
+	mov ecx, [.col_offset]
+
+	mov edi, board
+	cmp dword[edi+ecx+48], 0
+	je .move_row1
+
+.check_row2:
+	cmp dword[edi+ecx+32], 0
+	je .move_row2
+
+.check_row3:
+	cmp dword[edi+ecx+16], 0
+	je .move_row3
+
+	jmp .done
+
+.move_row1:
+	mov eax, [edi+ecx+32]
+	mov [edi+ecx+48], eax
+	mov dword[edi+ecx+32], 0
+	jmp .check_row2
+
+.move_row2:
+	mov eax, [edi+ecx+16]
+	mov [edi+ecx+32], eax
+	mov dword[edi+ecx+16], 0
+	jmp .check_row3
+
+.move_row3:
+	mov eax, [edi+ecx]
+	mov [edi+ecx+16], eax
+	mov dword[edi+ecx], 0
+
+.done:
+	dec [.times]
+	cmp [.times], 0
+	jne .start
+
+	ret
+
+align 4
+.col				dd 0
+.col_offset			dd 0
+.times				dd 4
+
+; move_row_left:
+; Moves a row to the left
+; In\	ECX = Row number
+; Out\	Nothing
+
+move_row_left:
+	shl ecx, 4		; mul 16
+	mov [.row_offset], ecx
+
+	mov [.times], 4
+
+.start:
+	mov ecx, [.row_offset]
+	mov edi, board
+
+.loop:
+	cmp dword[edi+ecx], 0
+	je .move_column1
+
+.check_column2:
+	cmp dword[edi+ecx+4], 0
+	je .move_column2
+
+.check_column3:
+	cmp dword[edi+ecx+8], 0
+	je .move_column3
+
+	jmp .done
+
+.move_column1:
+	mov eax, [edi+ecx+4]
+	mov [edi+ecx], eax
+	mov dword[edi+ecx+4], 0
+	jmp .check_column2
+
+.move_column2:
+	mov eax, [edi+ecx+8]
+	mov [edi+ecx+4], eax
+	mov dword[edi+ecx+8], 0
+	jmp .check_column3
+
+.move_column3:
+	mov eax, [edi+ecx+12]
+	mov [edi+ecx+8], eax
+	mov dword[edi+ecx+12], 0
+
+.done:
+	dec [.times]
+	cmp [.times], 0
+	jne .start
+
+	ret
+
+align 4
+.row_offset			dd 0
+.times				dd 4
+
+
+; move_row_right:
+; Moves a row to the right
+; In\	ECX = Row number
+; Out\	Nothing
+
+move_row_right:
+	shl ecx, 4		; mul 16
+	mov [.row_offset], ecx
+
+	mov [.times], 4
+
+.start:
+	mov ecx, [.row_offset]
+	mov edi, board
+
+.loop:
+	cmp dword[edi+ecx+12], 0
+	je .move_column1
+
+.check_column2:
+	cmp dword[edi+ecx+8], 0
+	je .move_column2
+
+.check_column3:
+	cmp dword[edi+ecx+4], 0
+	je .move_column3
+
+	jmp .done
+
+.move_column1:
+	mov eax, [edi+ecx+8]
+	mov [edi+ecx+12], eax
+	mov dword[edi+ecx+8], 0
+	jmp .check_column2
+
+.move_column2:
+	mov eax, [edi+ecx+4]
+	mov [edi+ecx+8], eax
+	mov dword[edi+ecx+4], 0
+	jmp .check_column3
+
+.move_column3:
+	mov eax, [edi+ecx]
+	mov [edi+ecx+4], eax
+	mov dword[edi+ecx], 0
+
+.done:
+	dec [.times]
+	cmp [.times], 0
+	jne .start
+
+	ret
+
+align 4
+.row_offset			dd 0
+.times				dd 4
+
 
 ; end_game:
 ; Quits the game
