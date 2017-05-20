@@ -4,15 +4,15 @@
 
 use32
 
-; UHCI Registers
-UHCI_COMMAND			= 0x00	; word
-UHCI_STATUS			= 0x02	; word
-UHCI_INTERRUPT			= 0x04	; word
-UHCI_FRAME			= 0x06	; word
-UHCI_FRAMELIST			= 0x08	; dword
-UHCI_SOF_MODIFY			= 0x0C	; byte
-UHCI_PORT1			= 0x10	; word
-UHCI_PORT2			= 0x12	; word
+; UHCI I/O Port Registers
+UHCI_COMMAND			= 0x00		; word
+UHCI_STATUS			= 0x02		; word
+UHCI_INTERRUPT			= 0x04		; word
+UHCI_FRAME			= 0x06		; word
+UHCI_FRAMELIST			= 0x08		; dword
+UHCI_SOF_MODIFY			= 0x0C		; byte
+UHCI_PORT1			= 0x10		; word
+UHCI_PORT2			= 0x12		; word
 
 ; UHCI Command Register Bitfield
 UHCI_COMMAND_RUN		= 0x0001
@@ -40,7 +40,7 @@ UHCI_PACKET_SETUP		= 0x2D
 UHCI_PACKET_IN			= 0x69
 UHCI_PACKET_OUT			= 0xE1
 
-UHCI_DESCRIPTORS_SIZE		= 128		; much, much more than enough
+UHCI_DESCRIPTORS_SIZE		= 128		; 0.5 MB much, much more than enough
 
 align 4
 uhci_pci_list			dd 0
@@ -225,13 +225,15 @@ uhci_reset_controller:
 	add dx, UHCI_PORT1
 	mov ax, UHCI_PORT_RESET
 	out dx, ax
+	call iowait
 
 	mov dx, [.io]
 	add dx, UHCI_PORT2
 	mov ax, UHCI_PORT_RESET
 	out dx, ax
+	call iowait
 
-	mov eax, 20
+	mov eax, 10
 	call pit_sleep
 
 	; end of reset --
@@ -240,11 +242,13 @@ uhci_reset_controller:
 	add dx, UHCI_PORT1
 	mov ax, UHCI_PORT_ENABLE
 	out dx, ax
+	call iowait
 
 	mov dx, [.io]
 	add dx, UHCI_PORT2
 	mov ax, UHCI_PORT_ENABLE
 	out dx, ax
+	call iowait
 
 	mov eax, 10
 	call pit_sleep
@@ -259,6 +263,7 @@ align 4
 ; Sends a setup packet
 ; In\	EAX = Pointer to controller information
 ; In\	BL = Device address
+; In\	BH = Endpoint
 ; In\	ESI = Setup packet data
 ; In\	EDI = Data stage, if present
 ; In\	ECX = Size of data stage, zero if not present
@@ -272,6 +277,8 @@ uhci_setup:
 
 	and bl, 0x7F
 	mov [.address], bl
+	and bh, 0x0F
+	mov [.endpoint], bh
 
 	mov eax, [.controller]
 	mov edx, [eax+USB_CONTROLLER_BASE]
@@ -343,6 +350,9 @@ uhci_setup:
 	movzx ebx, [.address]
 	shl ebx, 8
 	or eax, ebx
+	movzx ebx, [.endpoint]
+	shl ebx, 15
+	or eax, ebx
 	or eax, UHCI_PACKET_SETUP
 	stosd
 
@@ -375,6 +385,9 @@ uhci_setup:
 	movzx ebx, [.address]
 	shl ebx, 8
 	or eax, ebx
+	movzx ebx, [.endpoint]
+	shl ebx, 15
+	or eax, ebx
 	or eax, UHCI_PACKET_IN
 	or eax, 1 shl 19	; data 1
 	stosd
@@ -400,6 +413,9 @@ uhci_setup:
 	shl eax, 21
 	movzx ebx, [.address]
 	shl ebx, 8
+	or eax, ebx
+	movzx ebx, [.endpoint]
+	shl ebx, 15
 	or eax, ebx
 	or eax, UHCI_PACKET_OUT
 	stosd
@@ -428,6 +444,9 @@ uhci_setup:
 	shl eax, 21
 	movzx ebx, [.address]
 	shl ebx, 8
+	or eax, ebx
+	movzx ebx, [.endpoint]
+	shl ebx, 15
 	or eax, ebx
 	or eax, UHCI_PACKET_IN
 	stosd
@@ -591,6 +610,7 @@ align 4
 .data_size			dd 0
 .io				dw 0
 .address			db 0
+.endpoint			db 0
 
 align 4
 .framelist			dd 0

@@ -7,10 +7,10 @@ use32
 ;
 ; sturct usb_controller
 ; {
-;	u8 type;	// USB_UHCI, USB_OHCI, USB_EHCI, USB_XHCI
+;	u8 type;		// USB_UHCI, USB_OHCI, USB_EHCI, USB_XHCI
 ;	u8 bus, slot, function;
 ;	u32 base;
-;	u32 addresses;
+;	u32 addresses;		// pointer to array of device addresses
 ; }
 ;
 ;
@@ -26,8 +26,8 @@ USB_CONTROLLER_BASE		= 4
 USB_CONTROLLER_ADDRESSES	= 8
 USB_CONTROLLER_SIZE		= 16
 
-USB_MAX_CONTROLLERS		= 64	; 64 usb controllers is definitely enough
-USB_MAX_ADDRESSES		= 2048	; 2048 devices per controller
+USB_MAX_CONTROLLERS		= 128	; 128 usb controllers is definitely enough
+USB_MAX_ADDRESSES		= 128	; 128 devices per controller
 
 ; Types of USB host controllers
 USB_UHCI			= 1
@@ -226,6 +226,7 @@ align 4
 ; Sends a setup packet
 ; In\	EAX = Controller number
 ; In\	BL = Device address
+; In\	BH = Endpoint
 ; In\	ESI = Setup packet data
 ; In\	EDI = Data stage, if present
 ; In\	ECX = Size of data stage, zero if not present
@@ -293,6 +294,7 @@ usb_assign_addresses:
 
 	mov eax, [.controller]
 	mov bl, 0		; device address 0
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
 	mov ecx, 18
@@ -315,6 +317,7 @@ usb_assign_addresses:
 
 	mov eax, [.controller]
 	mov bl, 0		; old address
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, 0		; no data stage
 	mov ecx, 0
@@ -337,6 +340,7 @@ usb_assign_addresses:
 
 	mov eax, [.controller]
 	mov bl, [.current_address]	; new address
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
 	mov ecx, 18
@@ -448,6 +452,7 @@ usb_get_strings:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
 	mov ecx, 255
@@ -493,6 +498,7 @@ usb_get_strings:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
 	mov ecx, 18
@@ -522,6 +528,7 @@ usb_get_strings:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
 	mov ecx, 255
@@ -571,6 +578,7 @@ usb_get_strings:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
 	mov ecx, 255
@@ -620,6 +628,8 @@ align 4
 .manufacturer_return		dd -1
 .product_return			dd -1
 
+
+; Setup Packet...
 align 4
 usb_setup_packet:
 	.request_type		db 0
@@ -628,6 +638,7 @@ usb_setup_packet:
 	.index			dw 0
 	.length			dw 0
 
+; Descriptors...
 align 4
 usb_device_descriptor:
 	.length			db 0
@@ -650,5 +661,7 @@ usb_string_descriptor:
 	.length			db 0
 	.type			db 0
 	.string:		times 253 db 0
+
+
 
 

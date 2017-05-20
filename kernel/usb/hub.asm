@@ -56,6 +56,7 @@ usb_hub_init:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0		; USB hubs can only have one endpoint
 	mov esi, usb_setup_packet
 	mov edi, usb_hub_descriptor
 	mov ecx, 7		; request 7 bytes only
@@ -80,6 +81,7 @@ usb_hub_init:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, 0
 	mov ecx, 0
@@ -106,6 +108,7 @@ usb_hub_init:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, 0
 	mov ecx, 0
@@ -127,6 +130,7 @@ usb_hub_init:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, .port_status
 	mov ecx, 2
@@ -150,6 +154,7 @@ usb_hub_init:
 
 	mov eax, [.controller]
 	mov bl, [.address]
+	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, .port_status
 	mov ecx, 2
