@@ -151,6 +151,21 @@ vmm_get_page:
 	and edx, 0xFF
 	ret
 
+; virtual_to_physical:
+; Converts a virtual address to physical address
+; In\	EAX = Virtual address
+; Out\	EAX = Physical address
+align 32
+virtual_to_physical:
+	push eax
+	call vmm_get_page
+
+	pop ebx
+
+	and ebx, 0xFFF
+	add eax, ebx
+	ret
+
 ; vmm_alloc_pages:
 ; Allocates virtual memory
 ; In\	EAX = Starting address

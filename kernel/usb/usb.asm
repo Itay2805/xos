@@ -5,132 +5,112 @@
 use32
 
 ;
-;
-; struct usb_controller
+; sturct usb_controller
 ; {
-;	u8 type;		// USB_UHCI, USB_OHCI, USB_EHCI, USB_XHCI
-;	u8 pci_bus;
-;	u8 pci_slot;
-;	u8 pci_function;
+;	u8 type;	// USB_UHCI, USB_OHCI, USB_EHCI, USB_XHCI
+;	u8 bus, slot, function;
 ;	u32 base;
+;	u32 addresses;
 ; }
 ;
-; sizeof(usb_controller) = 8;
+;
+; sizeof(usb_controller) = 16;
 ;
 ;
 
-USB_CONTROLLER_TYPE		= 0x00
-USB_CONTROLLER_BUS		= 0x01
-USB_CONTROLLER_SLOT		= 0x02
-USB_CONTROLLER_FUNCTION		= 0x03
-USB_CONTROLLER_BASE		= 0x04
-USB_CONTROLLER_SIZE		= 0x08
+USB_CONTROLLER_TYPE		= 0
+USB_CONTROLLER_BUS		= 1
+USB_CONTROLLER_SLOT		= 2
+USB_CONTROLLER_FUNCTION		= 3
+USB_CONTROLLER_BASE		= 4
+USB_CONTROLLER_ADDRESSES	= 8
+USB_CONTROLLER_SIZE		= 16
 
-; Controller Types
-USB_NONE			= 0x00
-USB_UHCI			= 0x01
-USB_OHCI			= 0x02
-USB_EHCI			= 0x03
-USB_XHCI			= 0x04
+USB_MAX_CONTROLLERS		= 64	; 64 usb controllers is definitely enough
+USB_MAX_ADDRESSES		= 2048	; 2048 devices per controller
 
-MAXIMUM_USB_CONTROLLERS		= 32	; much, much more than enough...
-		; TO-DO: if someone knows, what is the maximum USB cotnrollers that can be present?
+; Types of USB host controllers
+USB_UHCI			= 1
+USB_OHCI			= 2
+USB_EHCI			= 3
+USB_XHCI			= 4
 
-; Standard USB Requests
-USB_GET_STATUS			= 0x00
-USB_CLEAR_FEATURE		= 0x01
-USB_SET_FEATURE			= 0x03
-USB_SET_ADDRESS			= 0x05
-USB_GET_DESCRIPTOR		= 0x06
-USB_SET_DESCRIPTOR		= 0x07
-USB_GET_CONFIGURATION		= 0x08
-USB_SET_CONFIGURATION		= 0x09
-USB_GET_INTERFACE		= 0x0A
-USB_SET_INTERFACE		= 0x0B
-USB_SYNC_FRAME			= 0x0C
+; USB Setup Request Codes
+USB_GET_STATUS			= 0
+USB_CLEAR_FEATURE		= 1
+USB_SET_FEATURE			= 3
+USB_SET_ADDRESS			= 5
+USB_GET_DESCRIPTOR		= 6
+USB_SET_DESCRIPTOR		= 7
+USB_GET_CONFIGURATION		= 8
+USB_SET_CONFIGURATION		= 9
+USB_GET_INTERFACE		= 10
+USB_SET_INTERFACE		= 11
+USB_SYNCH_FRAME			= 12
 
-; Standard Descriptor Types
-USB_DESCRIPTOR_DEVICE		= 0x01
-USB_DESCRIPTOR_CONFIGURATION	= 0x02
-USB_DESCRIPTOR_STRING		= 0x03
-USB_DESCRIPTOR_INTERFACE	= 0x04
-USB_DESCRIPTOR_ENDPOINT		= 0x05
-
-; USB Setup Packet Structure
-USB_SETUP_REQUEST_FLAGS		= 0x00	; u8
-USB_SETUP_REQUEST		= 0x01	; u8
-USB_SETUP_VALUE			= 0x02	; u16
-USB_SETUP_INDEX			= 0x04	; u16
-USB_SETUP_LENGTH		= 0x06	; u16
+; USB Descriptor Types
+USB_DEVICE_DESCRIPTOR		= 1
+USB_CONFIGURATION_DESCRIPTOR	= 2
+USB_STRING_DESCRIPTOR		= 3
+USB_INTERFACE_DESCRIPTOR	= 4
+USB_ENDPOINT_DESCRIPTOR		= 5
 
 align 4
 usb_controllers			dd 0
-usb_controller_count		dd 0
-usb_setup_packet		dd 0
+usb_controllers_count		dd 0
 
 ; usb_init:
-; Initializes USB controllers
+; Detects and initializes USB host controllers
 
 usb_init:
-	mov esi, .msg
+	mov esi, .starting
 	call kprint
 
-	mov ecx, MAXIMUM_USB_CONTROLLERS*USB_CONTROLLER_SIZE
+	mov ecx, USB_MAX_CONTROLLERS*USB_CONTROLLER_SIZE
 	call kmalloc
 	mov [usb_controllers], eax
 
-	call uhci_detect
-	;call ohci_detect
-	;call ehci_detect
-	;call xhci_detect
-
-	mov eax, KERNEL_HEAP
-	mov ecx, 1
-	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
-	call vmm_alloc
-	mov [usb_setup_packet], eax
+	; in order...
+	call uhci_init
+	;call ohci_init
+	;call ehci_init
+	;call xhci_init
 
 	ret
 
-.msg				db "usb: detecting USB controllers...",10,0
+.starting			db "usb: starting detection of USB host controllers...",10,0
 
 ; usb_register:
-; Registers a USB device
-; In\	DL = Device type
+; Registers a USB host controller
 ; In\	AL = PCI bus
 ; In\	AH = PCI slot
 ; In\	BL = PCI function
-; In\	ECX = Base memory/IO port
-; Out\	EAX = Controller number, -1 on error
+; In\	CL = Type of USB controller
+; In\	EDX = MMIO or I/O port base
+; In\	ESI = Pointer to addresses
+; Out\	EAX = USB controller number, -1 on error
 
 usb_register:
-	mov [.type], dl
-	mov [.bus], al
-	mov [.slot], ah
-	mov [.function], bl
-	mov [.base], ecx
+	cmp [usb_controllers_count], USB_MAX_CONTROLLERS
+	jge .error
 
-	cmp [usb_controller_count], MAXIMUM_USB_CONTROLLERS
-	jge .no
+	mov [.type], cl
 
-	mov edi, [usb_controller_count]
-	shl edi, 3	; mul 8
+	mov edi, [usb_controllers_count]
+	shl edi, 4	; mul 16
 	add edi, [usb_controllers]
 
-	mov al, [.type]
-	mov [edi+USB_CONTROLLER_TYPE], al
-
-	mov al, [.bus]
+	mov [edi+USB_CONTROLLER_TYPE], cl
 	mov [edi+USB_CONTROLLER_BUS], al
+	mov [edi+USB_CONTROLLER_SLOT], ah
+	mov [edi+USB_CONTROLLER_FUNCTION], bl
+	mov [edi+USB_CONTROLLER_BASE], edx
+	mov [edi+USB_CONTROLLER_ADDRESSES], esi
 
-	mov al, [.slot]
-	mov [edi+USB_CONTROLLER_SLOT], al
+	mov eax, [usb_controllers_count]
+	mov [.return], eax
 
-	mov al, [.function]
-	mov [edi+USB_CONTROLLER_FUNCTION], al
-
-	mov eax, [.base]
-	mov [edi+USB_CONTROLLER_BASE], eax
+	inc [usb_controllers_count]
 
 	mov esi, .msg
 	call kprint
@@ -147,198 +127,289 @@ usb_register:
 	cmp [.type], USB_XHCI
 	je .xhci
 
-.unknown:
-	mov esi, .unknown_msg
-	call kprint
-	jmp .continue
-
-.uhci:
-	mov esi, .uhci_msg
-	call kprint
-	jmp .continue
-
-.ohci:
-	mov esi, .ohci_msg
-	call kprint
-	jmp .continue
-
-.ehci:
-	mov esi, .ehci_msg
-	call kprint
-	jmp .continue
-
-.xhci:
-	mov esi, .xhci_msg
+	mov esi, .unknown
 	call kprint
 
-.continue:
+.done:
 	mov esi, .msg2
 	call kprint
-	mov eax, [usb_controller_count]
+	mov eax, [.return]
 	call int_to_string
 	call kprint
 	mov esi, newline
 	call kprint
 
-	mov eax, [usb_controller_count]
-	inc [usb_controller_count]
+	mov eax, [.return]
 	ret
 
-.no:
+.uhci:
+	mov esi, .uhci_msg
+	call kprint
+	jmp .done
+
+.ohci:
+	mov esi, .ohci_msg
+	call kprint
+	jmp .done
+
+.ehci:
+	mov esi, .ehci_msg
+	call kprint
+	jmp .done
+
+.xhci:
+	mov esi, .xhci_msg
+	call kprint
+	jmp .done
+
+.error:
 	mov eax, -1
 	ret
 
-.type			db 0
-.bus			db 0
-.slot			db 0
-.function		db 0
-.base			dd 0
-.msg			db "usb: registered USB ",0
-.msg2			db " controller, device number ",0
-.unknown_msg		db "unknown",0
-.uhci_msg		db "UHCI",0
-.ohci_msg		db "OHCI",0
-.ehci_msg		db "EHCI",0
-.xhci_msg		db "xHCI",0
+align 4
+.return				dd 0
+.type				db 0
 
-; usb_reset:
-; Resets a USB controller
+.msg				db "usb: registered ",0
+.msg2				db " controller, controller number ",0
+.unknown			db "unknown USB",0
+.uhci_msg			db "UHCI",0
+.ohci_msg			db "OHCI",0
+.ehci_msg			db "EHCI",0
+.xhci_msg			db "xHCI",0
+
+; usb_reset_controller:
+; Resets a USB host controller
 ; In\	EAX = Controller number
 ; Out\	Nothing
 
-usb_reset:
-	cmp eax, [usb_controller_count]
-	jge .quit
+usb_reset_controller:
+	; reset the host controller --
+	; -- then detect devices and give them addresses
+	mov [.controller], eax
 
-	shl eax, 3		; mul 8
+	shl eax, 4
 	add eax, [usb_controllers]
 
-	cmp byte[eax], USB_UHCI
-	je uhci_reset
+	mov cl, [eax+USB_CONTROLLER_TYPE]
+	cmp cl, USB_UHCI
+	je .uhci
 
-	;cmp byte[eax], USB_OHCI
-	;je ohci_reset
+	;cmp cl, USB_OHCI
+	;je .ohci
 
-	;cmp byte[eax], USB_EHCI
-	;je ehci_reset
+	;cmp cl, USB_EHCI
+	;je .ehci
 
-	;cmp byte[eax], USB_XHCI
-	;je xhci_reset
+	;cmp cl, USB_XHCI
+	;je .xhci
 
-.quit:
 	ret
 
-; usb_control:
-; Sends a control packet
+.uhci:
+	call uhci_reset_controller
+	jmp .next
+
+.next:
+	mov eax, [.controller]
+	call usb_assign_addresses
+	ret
+
+align 4
+.controller			dd 0
+
+; usb_setup:
+; Sends a setup packet
 ; In\	EAX = Controller number
-; In\	BL = Port number
-; In\	BH = Request flags
-; In\	CL = Request byte
-; In\	DX = Request value
-; In\	EDX (high word) = Request index
-; In\	SI = Data size
-; In\	EDI = If data size exists, pointer to data area
+; In\	BL = Device address
+; In\	ESI = Setup packet data
+; In\	EDI = Data stage, if present
+; In\	ECX = Size of data stage, zero if not present
 ; Out\	EAX = 0 on success
 
-usb_control:
-	cmp eax, [usb_controller_count]
-	jge .quit
-
-	shl eax, 3		; mul 8
+usb_setup:
+	shl eax, 4		; mul 16
 	add eax, [usb_controllers]
 
-	cmp byte[eax], USB_UHCI
-	je uhci_control
+	cmp byte[eax+USB_CONTROLLER_TYPE], USB_UHCI
+	je .uhci
 
-	;cmp byte[eax], USB_OHCI
-	;je ohci_control
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_OHCI
+	;je .ohci
 
-	;cmp byte[eax], USB_EHCI
-	;je ehci_control
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_EHCI
+	;je .ehci
 
-	;cmp byte[eax], USB_XHCI
-	;je xhci_control
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_XHCI
+	;je .xhci
 
-.quit:
 	mov eax, -1
 	ret
 
-; usb_get_descriptor:
-; Reads a USB descriptor
-; In\	EAX = Controller number
-; In\	BL = Port number
-; In\	CX = Descriptor type and index
-; In\	DX = Language ID
-; In\	SI = Descriptor length
-; In\	EDI = If SI != 0, buffer to store descriptor
-; Out\	EAX = 0 on success
-
-usb_get_descriptor:
-	mov [.port], bl
-	mov [.descriptor], cx
-	mov [.language], dx
-	mov [.length], si
-	mov [.buffer], edi
-
-	mov bl, [.port]
-	mov bh, 0x80			; host to device setup packet
-	mov cl, USB_GET_DESCRIPTOR
-
-	mov dx, [.language]
-	shl edx, 16
-	mov dx, [.descriptor]
-
-	mov si, [.length]
-	mov edi, [.buffer]
-	call usb_control
-
+.uhci:
+	call uhci_setup
 	ret
 
-.port			db 0
-.descriptor		dw 0
-.language		dw 0
-.length			dw 0
-.buffer			dd 0
+; usb_assign_addresses:
+; Assigns addresses to USB devices
+; In\	EAX = Controller number
+; Out\	Nothing
 
-; USB Device Descriptor
+usb_assign_addresses:
+	mov [.controller], eax
+
+	shl eax, 4
+	add eax, [usb_controllers]
+	mov edi, [eax+USB_CONTROLLER_ADDRESSES]
+	mov [.addresses], edi
+
+	; clear all addresses
+	mov ecx, USB_MAX_ADDRESSES
+	xor al, al
+	rep stosb
+
+	mov [.current_address], 1	; 0 is special value
+					; valid values are 1 to 127
+
+.loop:
+	cmp [.current_address], 127
+	jge .done
+
+	; try to receive descriptor from default address 0
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	xor al, al
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_DEVICE_DESCRIPTOR shl 8	; device descriptor #0
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 18	; size of device descriptor
+
+	mov eax, [.controller]
+	mov bl, 0		; device address 0
+	mov esi, usb_setup_packet
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; ensure a valid descriptor
+	cmp [usb_device_descriptor.type], USB_DEVICE_DESCRIPTOR
+	jne .done
+
+	; okay, assign a device address!
+	mov [usb_setup_packet.request_type], 0x00
+	mov [usb_setup_packet.request], USB_SET_ADDRESS
+	movzx ax, [.current_address]
+	mov [usb_setup_packet.value], ax
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, 0		; old address
+	mov esi, usb_setup_packet
+	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; try to access the device using the new device address to ensure it worked
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	xor al, al
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_DEVICE_DESCRIPTOR shl 8	; device descriptor #0
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 18	; size of device descriptor
+
+	mov eax, [.controller]
+	mov bl, [.current_address]	; new address
+	mov esi, usb_setup_packet
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; valid descriptor?
+	cmp [usb_device_descriptor.type], USB_DEVICE_DESCRIPTOR
+	jne .done
+
+	; success!
+	mov esi, .msg
+	call kprint
+	movzx eax, [.current_address]
+	call int_to_string
+	call kprint
+	mov esi, .msg2
+	call kprint
+	mov eax, [.controller]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	; store the address
+	mov edi, [.addresses]
+	mov al, [.current_address]
+	stosb
+	mov [.addresses], edi
+
+	cmp [usb_device_descriptor.class], USB_HUB_CLASS	; USB hub?
+	jne .next
+
+	mov eax, [.controller]
+	mov bl, [.current_address]
+	call usb_hub_init
+
+.next:
+	inc [.current_address]
+	jmp .loop
+
+.done:
+	ret
+
+align 4
+.controller			dd 0
+.addresses			dd 0
+.current_address		db 1
+
+.msg				db "usb: assigned device address ",0
+.msg2				db " on USB host controller ",0
+
+align 4
+usb_setup_packet:
+	.request_type		db 0
+	.request		db 0
+	.value			dw 0
+	.index			dw 0
+	.length			dw 0
+
+align 4
 usb_device_descriptor:
-	.length			db 0	; 0x12
-	.type			db 0	; USB_DESCRIPTOR_DEVICE
-	.usb_version		dw 0	; BCD
+	.length			db 0
+	.type			db 0
+	.version		dw 0
 	.class			db 0
 	.subclass		db 0
 	.protocol		db 0
 	.max_packet		db 0
 	.vendor			dw 0
-	.device			dw 0
+	.product		dw 0
 	.device_version		dw 0
 	.manufacturer		db 0
-	.product		db 0
-	.serial_number		db 0
+	.iproduct		db 0
+	.serial			db 0
 	.configurations		db 0
-
-; USB Configuration Descriptor
-usb_configuration_descriptor:
-	.length			db 0	; 0x09
-	.type			db 0	; USB_DESCRIPTOR_CONFIGURATION
-	.total_length		dw 0
-	.interface_count	db 0
-	.configuration_id	db 0
-	.configuration_string	db 0
-	.attributes		db 0
-	.max_power		db 0
-
-; USB Interface Descriptor
-usb_interface_descriptor:
-	.length			db 0	; 0x09
-	.type			db 0	; USB_DESCRIPTOR_INTERFACE
-	.interface_number	db 0
-	.alternate_setting	db 0
-	.endpoints		db 0
-	.class			db 0
-	.subclass		db 0
-	.protocol		db 0
-	.index			db 0
-
 
 

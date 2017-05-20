@@ -343,11 +343,12 @@ idle_process:
 
 	; USB and nice stuff
 	include "kernel/usb/usb.asm"		; Generic USB interface
+	include "kernel/usb/hub.asm"		; Generic USB hub interface
 	include "kernel/usb/uhci.asm"		; USB 1.0 (UHCI)
 	;include "kernel/usb/ohci.asm"		; USB 1.0 (OHCI)
 	;include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
-	include "kernel/usb/usbmsd.asm"		; USB Mass Storage Device Driver
+	;include "kernel/usb/usbmsd.asm"	; USB Mass Storage Device Driver
 	;include "kernel/usb/usbhid.asm"	; USB Human Interface Device Driver
 	;include "kernel/usb/usbcam.asm"	; USB Camera Device Driver
 

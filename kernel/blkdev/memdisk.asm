@@ -13,7 +13,7 @@ memdisk_base			dd 0
 
 memdisk_detect:
 	; for debugging purposes, print the e820 memory map
-	call do_memory_map
+	;call do_memory_map
 
 	; disable paging ;)
 	wbinvd
