@@ -208,7 +208,7 @@ update_time:
 	jle .hour_small
 
 	cmp [.hour], 12
-	jg .pm
+	jge .pm
 
 .am:
 	movzx eax, [.hour]
