@@ -67,8 +67,8 @@ main:
 start_game:
 	; clear the board
 	mov edi, board
-	mov eax, 256
-	mov ecx, 0
+	mov eax, 0
+	mov ecx, 4*4
 	rep stosd
 
 	; reset the score
