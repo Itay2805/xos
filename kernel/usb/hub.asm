@@ -9,7 +9,6 @@ USB_HUB_CLASS			= 0x09
 USB_HUB_DESCRIPTOR		= 0x29
 
 ; USB Hub Feature Selectors
-USB_HUB_FEATURE_C_PORT_ENABLE	= 17
 USB_HUB_FEATURE_PORT_ENABLE	= 1
 USB_HUB_FEATURE_PORT_RESET	= 4
 USB_HUB_FEATURE_PORT_POWER	= 8
@@ -89,7 +88,7 @@ usb_hub_init:
 	cmp eax, 0
 	jne .error
 
-	; reset all downstream ports on the ub
+	; reset all downstream ports on the hub
 	mov [.current_port], 1		; one-based and not zero!
 
 .ports_loop:
@@ -115,9 +114,8 @@ usb_hub_init:
 	cmp eax, 0
 	jne .error
 
-	; poll the port, wait for reset to complete
-
 .wait_reset:
+	; poll the port, wait for the reset to complete
 	mov [.port_status], 0
 
 	mov [usb_setup_packet.request_type], 0xA3

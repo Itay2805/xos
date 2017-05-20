@@ -40,6 +40,8 @@ UHCI_PACKET_SETUP		= 0x2D
 UHCI_PACKET_IN			= 0x69
 UHCI_PACKET_OUT			= 0xE1
 
+UHCI_DESCRIPTORS_SIZE		= 128		; much, much more than enough
+
 align 4
 uhci_pci_list			dd 0
 uhci_pci_count			dd 0
@@ -290,7 +292,7 @@ uhci_setup:
 .skip_data:
 	; construct the descriptors
 	mov eax, KERNEL_HEAP
-	mov ecx, 3
+	mov ecx, UHCI_DESCRIPTORS_SIZE
 	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
 	call vmm_alloc
 	mov [.framelist], eax
@@ -505,6 +507,10 @@ uhci_setup:
 	;mov esi, .interrupt_msg
 	;call kprint
 
+	mov eax, [.framelist]
+	mov ecx, UHCI_DESCRIPTORS_SIZE
+	call vmm_free
+
 	mov eax, -1
 	ret
 
@@ -524,6 +530,10 @@ uhci_setup:
 
 	;mov esi, .host_msg
 	;call kprint
+
+	mov eax, [.framelist]
+	mov ecx, UHCI_DESCRIPTORS_SIZE
+	call vmm_free
 
 	mov eax, -1
 	ret
@@ -545,6 +555,10 @@ uhci_setup:
 	;mov esi, .process_msg
 	;call kprint
 
+	mov eax, [.framelist]
+	mov ecx, UHCI_DESCRIPTORS_SIZE
+	call vmm_free
+
 	mov eax, -1
 	ret
 
@@ -561,6 +575,10 @@ uhci_setup:
 	mov ax, 0x3F
 	out dx, ax
 	call iowait
+
+	mov eax, [.framelist]
+	mov ecx, UHCI_DESCRIPTORS_SIZE
+	call vmm_free
 
 	mov eax, 0
 	ret

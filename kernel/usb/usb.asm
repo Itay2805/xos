@@ -55,6 +55,10 @@ USB_STRING_DESCRIPTOR		= 3
 USB_INTERFACE_DESCRIPTOR	= 4
 USB_ENDPOINT_DESCRIPTOR		= 5
 
+; Language Code For English
+USB_LANGID_ENGLISH		= 0x0009	; lowest 9 bits are language ID
+			; highest bits are sublanguage ID, but we don't need that
+
 align 4
 usb_controllers			dd 0
 usb_controllers_count		dd 0
@@ -356,9 +360,26 @@ usb_assign_addresses:
 	mov eax, [.controller]
 	call int_to_string
 	call kprint
+	mov esi, .msg3
+	call kprint
+	mov eax, [.controller]
+	mov bl, [.current_address]
+	call usb_get_strings
+	cmp edi, -1
+	je .bad_string
+
+	mov esi, edi
+	call kprint
 	mov esi, newline
 	call kprint
 
+	jmp .store
+
+.bad_string:
+	mov esi, .bad_string_msg
+	call kprint
+
+.store:
 	; store the address
 	mov edi, [.addresses]
 	mov al, [.current_address]
@@ -385,7 +406,219 @@ align 4
 .current_address		db 1
 
 .msg				db "usb: assigned device address ",0
-.msg2				db " on USB host controller ",0
+.msg2				db " on controller ",0
+.msg3				db ": ",0
+.bad_string_msg			db "UNABLE TO RECEIVE STRING DESCRIPTOR!",10,0
+
+; usb_get_strings:
+; Returns manufacturer and product strings in English
+; In\	EAX = Controller
+; In\	BL = Address
+; Out\	ESI = Manufacturer string, -1 on error
+; Out\	EDI = Product string, -1 on error
+
+usb_get_strings:
+	mov [.controller], eax
+	mov [.address], bl
+
+	mov edi, .manufacturer
+	mov ecx, 255
+	mov al, 0
+	rep stosb
+
+	mov edi, .product
+	mov ecx, 255
+	mov al, 0
+	rep stosb
+
+	mov [.manufacturer_return], -1
+	mov [.product_return], -1
+
+	; check if the device supports English strings
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	mov al, 0
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_STRING_DESCRIPTOR shl 8	; string descriptor 0
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 255
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov esi, usb_setup_packet
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	call usb_setup
+
+	cmp eax, 0
+	jne .error
+
+	cmp [usb_string_descriptor.type], USB_STRING_DESCRIPTOR
+	jne .error
+
+	; scan for English language ID
+	mov esi, usb_string_descriptor
+	add esi, 2
+
+.loop:
+	cmp esi, usb_string_descriptor+255
+	jge .error
+
+	lodsw
+
+	mov bx, ax
+	and bx, 0x01FF		; lowest 9 bits
+	cmp bx, USB_LANGID_ENGLISH
+	je .found_langid
+
+	jmp .loop
+
+.found_langid:
+	mov [.langid], ax
+
+	; get the device descriptor
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	mov al, 0
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_DEVICE_DESCRIPTOR shl 8
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 18
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov esi, usb_setup_packet
+	mov edi, usb_device_descriptor
+	mov ecx, 18
+	call usb_setup
+
+	cmp eax, 0
+	jne .error
+
+	; receive the manufacturer string
+	cmp [usb_device_descriptor.smanufacturer], 0
+	je .no_manufacturer
+
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	mov al, 0
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov ax, USB_STRING_DESCRIPTOR
+	shl ax, 8
+	mov al, [usb_device_descriptor.smanufacturer]
+	mov [usb_setup_packet.value], ax
+	mov ax, [.langid]
+	mov [usb_setup_packet.index], ax
+	mov [usb_setup_packet.length], 255
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov esi, usb_setup_packet
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	call usb_setup
+
+	cmp eax, 0
+	jne .error
+
+	movzx ecx, [usb_string_descriptor.length]
+	sub ecx, 2
+	mov esi, usb_string_descriptor.string
+	mov edi, .manufacturer
+
+.manufacturer_loop:
+	movsb
+	inc esi
+	loop .manufacturer_loop
+
+	mov al, 0
+	stosb
+
+	mov [.manufacturer_return], .manufacturer
+	jmp .do_product
+
+.no_manufacturer:
+	mov [.manufacturer_return], -1
+
+.do_product:
+	; receive the product string
+	cmp [usb_device_descriptor.product], 0
+	je .no_product
+
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	mov al, 0
+	rep stosb
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov ax, USB_STRING_DESCRIPTOR
+	shl ax, 8
+	mov al, [usb_device_descriptor.sproduct]
+	mov [usb_setup_packet.value], ax
+	mov ax, [.langid]
+	mov [usb_setup_packet.index], ax
+	mov [usb_setup_packet.length], 255
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov esi, usb_setup_packet
+	mov edi, usb_string_descriptor
+	mov ecx, 255
+	call usb_setup
+
+	cmp eax, 0
+	jne .error
+
+	movzx ecx, [usb_string_descriptor.length]
+	sub ecx, 2
+	mov esi, usb_string_descriptor.string
+	mov edi, .product
+
+.product_loop:
+	movsb
+	inc esi
+	loop .product_loop
+
+	mov al, 0
+	stosb
+
+	mov [.product_return], .product
+	jmp .done
+
+.no_product:
+	mov [.product_return], -1
+
+.done:
+	mov esi, [.manufacturer_return]
+	mov edi, [.product_return]
+	ret
+
+.error:
+	mov esi, -1
+	mov edi, -1
+	ret
+	
+
+align 4
+.controller			dd 0
+.langid				dw 0
+.address			db 0
+
+.manufacturer:			times 255 db 0
+.product:			times 255 db 0
+
+.manufacturer_return		dd -1
+.product_return			dd -1
 
 align 4
 usb_setup_packet:
@@ -407,9 +640,15 @@ usb_device_descriptor:
 	.vendor			dw 0
 	.product		dw 0
 	.device_version		dw 0
-	.manufacturer		db 0
-	.iproduct		db 0
+	.smanufacturer		db 0
+	.sproduct		db 0
 	.serial			db 0
 	.configurations		db 0
+
+align 4
+usb_string_descriptor:
+	.length			db 0
+	.type			db 0
+	.string:		times 253 db 0
 
 
