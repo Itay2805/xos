@@ -12,6 +12,7 @@ window_active_outline		dd -1		; no outline
 window_close_color		dd 0xD80000
 window_background		dd 0xD0D0D0
 window_opacity			db 2
+window_full_border_height	db 1
 
 align 4
 window_border_x_min		dw 8		; min x pos for a 0 width window

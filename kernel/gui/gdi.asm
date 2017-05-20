@@ -1072,12 +1072,12 @@ alpha_blend_colors_packed:
 	pand xmm6, xmm2
 	pand xmm7, xmm2
 
-	psrlq xmm0, [.intensity]	; shift foreground by intensity
-	psrlq xmm6, [.intensity]
-	psrlq xmm1, 1
-	psrlq xmm7, 1
-	paddq xmm0, xmm1
-	paddq xmm6, xmm7
+	psrld xmm0, [.intensity]	; shift foreground by intensity
+	psrld xmm6, [.intensity]
+	psrld xmm1, 1
+	psrld xmm7, 1
+	paddd xmm0, xmm1
+	paddd xmm6, xmm7
 
 	ret
 
@@ -1152,7 +1152,7 @@ alpha_fill_rect:
 	; next offset
 	mov edi, [screen.bytes_per_line]
 	add [.offset], edi
-	jmp .aligned_start
+	jmp .start
 
 .unaligned_start:
 	mov edi, [.offset]
@@ -1180,7 +1180,7 @@ alpha_fill_rect:
 	; next offset
 	mov edi, [screen.bytes_per_line]
 	add [.offset], edi
-	jmp .unaligned_start
+	jmp .start
 
 .done:
 	ret

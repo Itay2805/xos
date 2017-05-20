@@ -658,7 +658,17 @@ wm_redraw:
 	mov ax, [.x]
 	mov bx, [.y]
 	mov si, [.width]
+
+	cmp [window_full_border_height], 0
+	je .unfocused_unfull_border
+
 	mov di, [.height]
+	jmp .unfocused_draw
+
+.unfocused_unfull_border:
+	mov di, 0
+
+.unfocused_draw:
 	add si, [window_border_x_min]
 	add di, [window_border_y_min]
 	mov edx, [window_border]
@@ -724,7 +734,17 @@ wm_redraw:
 	mov ax, [.x]
 	mov bx, [.y]
 	mov si, [.width]
+
+	cmp [window_full_border_height], 0
+	je .focused_unfull_border
+
 	mov di, [.height]
+	jmp .focused_draw
+
+.focused_unfull_border:
+	mov di, 0
+
+.focused_draw:
 	add si, [window_border_x_min]
 	add di, [window_border_y_min]
 	mov edx, [window_active_border]
