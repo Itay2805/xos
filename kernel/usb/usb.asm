@@ -102,7 +102,7 @@ usb_init:
 
 	; in order...
 	call uhci_init
-	;call ohci_init
+	call ohci_init
 	;call ehci_init
 	;call xhci_init
 
@@ -225,8 +225,8 @@ usb_reset_controller:
 	cmp cl, USB_UHCI
 	je .uhci
 
-	;cmp cl, USB_OHCI
-	;je .ohci
+	cmp cl, USB_OHCI
+	je .ohci
 
 	;cmp cl, USB_EHCI
 	;je .ehci
@@ -238,6 +238,10 @@ usb_reset_controller:
 
 .uhci:
 	call uhci_reset_controller
+	jmp .next
+
+.ohci:
+	call ohci_reset_controller
 	jmp .next
 
 .next:

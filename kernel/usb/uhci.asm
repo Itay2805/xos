@@ -54,7 +54,7 @@ uhci_init:
 	; generate a list of PCI devices
 	mov ah, 0x0C
 	mov al, 0x03
-	mov bh, 0x00
+	mov bl, 0x00
 	call pci_generate_list
 
 	; no UHCI?

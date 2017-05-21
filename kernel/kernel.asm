@@ -7,7 +7,7 @@ org 0x1000
 
 	jmp 0x0000:kmain16
 
-	kernel_version			db "xOS32 v0.09 (20 May 2017)",0
+	kernel_version			db "xOS32 v0.09 (21 May 2017)",0
 	copyright_str			db "Copyright (C) 2016-2017 by Omar Mohammad.",0
 	newline				db 10,0
 
@@ -346,8 +346,8 @@ idle_process:
 	; USB and nice stuff
 	include "kernel/usb/usb.asm"		; Generic USB interface
 	include "kernel/usb/hub.asm"		; Generic USB hub interface
-	include "kernel/usb/uhci.asm"		; USB 1.0 (UHCI)
-	;include "kernel/usb/ohci.asm"		; USB 1.0 (OHCI)
+	include "kernel/usb/uhci.asm"		; USB 1.1 (UHCI)
+	include "kernel/usb/ohci.asm"		; USB 1.1 (OHCI)
 	;include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
 	;include "kernel/usb/usbmsd.asm"	; USB Mass Storage Device Driver
