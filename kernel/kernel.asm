@@ -256,6 +256,7 @@ kmain32:
 	call blkdev_init
 	call xfs_detect
 	call ps2_init
+	call usb_hid_init
 	call wm_init
 	call use_back_buffer
 	call unlock_screen
@@ -318,7 +319,8 @@ idle_process:
 	include "kernel/mm/mtrr.asm"		; MTRR manager
 
 	; I/O Device Drivers
-	include "kernel/iodev/ps2.asm"		; PS/2 keyboard/mouse driver
+	include "kernel/iodev/ps2.asm"		; PS/2 driver
+	include "kernel/iodev/mouse.asm"	; Generic mouse layer
 	include "kernel/keymaps/en-us.asm"	; en-US ASCII mappings
 
 	; Block Device Drivers
@@ -349,7 +351,7 @@ idle_process:
 	;include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
 	;include "kernel/usb/usbmsd.asm"	; USB Mass Storage Device Driver
-	;include "kernel/usb/usbhid.asm"	; USB Human Interface Device Driver
+	include "kernel/usb/hid.asm"		; USB Human Interface Device Driver
 	;include "kernel/usb/usbcam.asm"	; USB Camera Device Driver
 
 	; Boot splash

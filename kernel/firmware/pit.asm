@@ -47,25 +47,38 @@ pit_init:
 ; PIT IRQ Handler
 align 64
 pit_irq:
-	push eax
+	cli
+	pusha
 
 	inc [timer_ticks]
+	inc [usb_hid_time]
 
 	cmp [current_task], 0
 	je .idle
 
 .non_idle:
 	inc [nonidle_time]
-	jmp .done
+	jmp .check_hid
 
 .idle:
 	inc [idle_time]
+
+.check_hid:
+	mov eax, [usb_mouse_interval]
+	cmp eax, 0
+	je .done
+
+	cmp [usb_hid_time], eax
+	jl .done
+
+	mov [usb_hid_time], 0
+	call usb_hid_update_mouse
 
 .done:
 	mov al, 0x20
 	out 0x20, al
 
-	pop eax
+	popa
 	iret
 
 ; get_uptime:

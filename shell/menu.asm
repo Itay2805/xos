@@ -36,7 +36,7 @@ open_menu:
 	mov [config_handle], eax
 
 	mov ebp, XOS_MALLOC
-	mov ecx, 32768	; much much more than enough
+	mov ecx, 1024	; much much more than enough
 	int 0x60
 	mov [config_buffer], eax
 
@@ -104,7 +104,7 @@ open_menu:
 	jge .counted
 
 	lodsb
-	cmp al, 10	; newline
+	cmp al, 10
 	je .newline
 	cmp al, 0
 	je .counted

@@ -154,6 +154,8 @@ put_pixel:
 ; Out\	Nothing
 align 32
 clear_screen:
+	;cli
+
 	;mov [screen.x], 0
 	;mov [screen.y], 0
 
@@ -348,6 +350,7 @@ set_text_color:
 ; Out\	Nothing
 align 32
 print_string:
+	;cli
 	mov [.x], cx
 	mov [.y], dx
 	mov [.ox], cx
@@ -400,6 +403,7 @@ align 2
 ; Out\	Nothing
 align 32
 print_string_transparent:
+	;cli
 	mov [.x], cx
 	mov [.y], dx
 	mov [.ox], cx
@@ -451,6 +455,8 @@ align 32
 scroll_screen:
 	pusha
 
+	;cli
+
 	mov esi, [screen.bytes_per_line]
 	shl esi, 4		; mul 16
 	add esi, VBE_BACK_BUFFER
@@ -471,6 +477,8 @@ scroll_screen:
 ; Out\	Nothing
 align 32
 put_char:
+	;cli
+
 	pusha
 
 	cmp al, 13
@@ -539,6 +547,8 @@ put_char:
 ; Out\	Nothing
 align 32
 fill_rect:
+	;cli
+
 	mov [.x], ax
 	mov [.y], bx
 	mov [.width], si
@@ -598,6 +608,8 @@ align 32
 ; Out\	Nothing
 align 32
 blit_buffer:
+	;cli
+
 	mov [.transparent], ecx
 	mov [.x], ax
 	mov [.y], bx
@@ -671,6 +683,8 @@ align 4
 ; Out\	Nothing
 align 32
 blit_buffer_no_transparent:
+	;cli
+
 	mov [.x], ax
 	mov [.y], bx
 	mov [.width], si
@@ -732,6 +746,8 @@ align 32
 ; Out\	SI/DI = Width/Height of image
 align 32
 decode_bmp:
+	;cli
+
 	mov [.image], edx
 	mov [.memory], ebx
 
@@ -798,6 +814,8 @@ align 32
 ; Out\	Buffer inverted
 align 32
 invert_buffer_vertically:
+	;cli
+
 	mov [.buffer], edx
 	mov [.width], si
 	mov [.height], di
@@ -848,6 +866,8 @@ align 32
 ; Out\	EAX = Pointer to pixel buffer
 
 stretch_buffer:
+	;cli
+
 	mov [.old_buffer], edx
 	mov [.old_width], ax
 	mov [.old_height], bx
@@ -1093,6 +1113,8 @@ align 8
 ; Out\	Nothing
 align 32
 alpha_fill_rect:
+	;cli
+
 	test si, 7		; must be multiple of 8, because the SSE function works on 8 pixels at a time
 	jnz alpha_fill_rect_no_sse
 

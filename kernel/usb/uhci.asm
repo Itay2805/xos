@@ -40,11 +40,12 @@ UHCI_PACKET_SETUP		= 0x2D
 UHCI_PACKET_IN			= 0x69
 UHCI_PACKET_OUT			= 0xE1
 
-UHCI_DESCRIPTORS_SIZE		= 128		; 0.5 MB much, much more than enough
+UHCI_DESCRIPTORS_SIZE		= 8	; 32 KB of descriptors is much, much more than enough!
 
 align 4
 uhci_pci_list			dd 0
 uhci_pci_count			dd 0
+uhci_framelist			dd 0
 
 ; uhci_init:
 ; Detects and initializes UHCI controllers
@@ -70,6 +71,12 @@ uhci_init:
 	call kprint
 	mov esi, .starting2
 	call kprint
+
+	mov eax, 0
+	mov ecx, UHCI_DESCRIPTORS_SIZE
+	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
+	call vmm_alloc
+	mov [uhci_framelist], eax
 
 .loop:
 	mov ecx, [.controller]
@@ -141,6 +148,22 @@ uhci_init_controller:
 	call kprint
 	mov esi, newline
 	call kprint
+
+	; enable I/O ports and DMA, disable interrupt line
+	mov al, [.bus]
+	mov ah, [.slot]
+	mov bl, [.function]
+	mov bh, PCI_STATUS_COMMAND
+	call pci_read_dword
+
+	or eax, 0x405
+
+	mov edx, eax
+	mov al, [.bus]
+	mov ah, [.slot]
+	mov bl, [.function]
+	mov bh, PCI_STATUS_COMMAND
+	call pci_write_dword
 
 	; allocate memory for the device addresses
 	mov ecx, USB_MAX_ADDRESSES
@@ -298,10 +321,7 @@ uhci_setup:
 
 .skip_data:
 	; construct the descriptors
-	mov eax, KERNEL_HEAP
-	mov ecx, UHCI_DESCRIPTORS_SIZE
-	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
-	call vmm_alloc
+	mov eax, [uhci_framelist]
 	mov [.framelist], eax
 
 	call virtual_to_physical
@@ -423,7 +443,7 @@ uhci_setup:
 	mov eax, 0	; buffer..
 	stosd
 
-	mov eax, 0
+	;mov eax, 0
 	stosd
 	stosd
 	stosd
@@ -454,21 +474,21 @@ uhci_setup:
 	mov eax, 0	; buffer..
 	stosd
 
-	mov eax, 0
+	;mov eax, 0
 	stosd
 	stosd
 	stosd
 	stosd
 
 .send_packet:
-	wbinvd
+	;wbinvd
 
 	; tell the uhci about the frame list
 	mov dx, [.io]
 	in ax, dx
 	and ax, not UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 	mov dx, [.io]
 	add dx, UHCI_FRAMELIST
@@ -485,7 +505,7 @@ uhci_setup:
 	in ax, dx
 	mov ax, UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 .wait:
 	mov dx, [.io]
@@ -514,21 +534,17 @@ uhci_setup:
 	in ax, dx
 	and ax, not UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 	; clear status
 	mov dx, [.io]
 	add dx, UHCI_STATUS
 	mov ax, 0x3F
 	out dx, ax
-	call iowait
+	;call iowait
 
 	;mov esi, .interrupt_msg
 	;call kprint
-
-	mov eax, [.framelist]
-	mov ecx, UHCI_DESCRIPTORS_SIZE
-	call vmm_free
 
 	mov eax, -1
 	ret
@@ -538,21 +554,17 @@ uhci_setup:
 	in ax, dx
 	and ax, not UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 	; clear status
 	mov dx, [.io]
 	add dx, UHCI_STATUS
 	mov ax, 0x3F
 	out dx, ax
-	call iowait
+	;call iowait
 
 	;mov esi, .host_msg
 	;call kprint
-
-	mov eax, [.framelist]
-	mov ecx, UHCI_DESCRIPTORS_SIZE
-	call vmm_free
 
 	mov eax, -1
 	ret
@@ -562,21 +574,17 @@ uhci_setup:
 	in ax, dx
 	and ax, not UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 	; clear status
 	mov dx, [.io]
 	add dx, UHCI_STATUS
 	mov ax, 0x3F
 	out dx, ax
-	call iowait
+	;call iowait
 
 	;mov esi, .process_msg
 	;call kprint
-
-	mov eax, [.framelist]
-	mov ecx, UHCI_DESCRIPTORS_SIZE
-	call vmm_free
 
 	mov eax, -1
 	ret
@@ -586,18 +594,14 @@ uhci_setup:
 	in ax, dx
 	and ax, not UHCI_COMMAND_RUN
 	out dx, ax
-	call iowait
+	;call iowait
 
 	; clear status
 	mov dx, [.io]
 	add dx, UHCI_STATUS
 	mov ax, 0x3F
 	out dx, ax
-	call iowait
-
-	mov eax, [.framelist]
-	mov ecx, UHCI_DESCRIPTORS_SIZE
-	call vmm_free
+	;call iowait
 
 	mov eax, 0
 	ret
@@ -619,6 +623,8 @@ align 4
 .interrupt_msg			db "usb-uhci: interrupt error in setup packet.",10,0
 .host_msg			db "usb-uhci: host error in setup packet.",10,0
 .process_msg			db "usb-uhci: process error in setup packet.",10,0
+
+
 
 
 
