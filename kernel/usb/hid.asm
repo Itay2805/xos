@@ -6,8 +6,10 @@ use32
 
 USB_HID_DEFAULT_INTERVAL		= 10	; if the update interval is invalid..
 USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
-USB_HID_GET_REPORT			= 1	; request a report packet from a HID device
 
+; USB HID-Specific Setup Requests
+USB_HID_GET_REPORT			= 0x01	; request a report packet from a HID device
+USB_HID_SET_PROTOCOL			= 0x0B
 
 ; These variables are used by the timer IRQ to keep track of whether or
 ; not to update the USB HID device states by polling...
@@ -92,7 +94,7 @@ usb_hid_init_mouse:
 
 	mov [usb_setup_packet.request_type], 0x80
 	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
-	mov [usb_setup_packet.value], USB_CONFIGURATION_DESCRIPTOR shl 8
+	mov [usb_setup_packet.value], USB_CONFIGURATION_DESCRIPTOR shl 8	; configuration zero
 	mov [usb_setup_packet.index], 0
 	mov [usb_setup_packet.length], 256
 
@@ -112,6 +114,9 @@ usb_hid_init_mouse:
 	add esi, USB_CONFIGURATION_SIZE
 
 	cmp byte[esi+USB_INTERFACE_CLASS], 3		; HID?
+	jne .next
+
+	cmp byte[esi+USB_INTERFACE_SUBCLASS], 1		; boot protocol?
 	jne .next
 
 	cmp byte[esi+USB_INTERFACE_PROTOCOL], 2		; mouse?
@@ -187,6 +192,48 @@ usb_hid_init_mouse:
 	mov [usb_mouse_endpoint], al
 
 .initialize:
+	; set the configuration
+	mov [usb_setup_packet.request_type], 0x00
+	mov [usb_setup_packet.request], USB_SET_CONFIGURATION
+	mov esi, [.configuration]
+	movzx ax, byte[esi+USB_CONFIGURATION_VALUE]
+	mov [usb_setup_packet.value], ax		; configuration value
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; enable boot protocol
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_PROTOCOL
+	mov [usb_setup_packet.value], 0		; boot
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; free the memory used by the configuration
+	mov eax, [.configuration]
+	call kfree
+
 	cmp [usb_mouse_interval], 0
 	je .default
 
