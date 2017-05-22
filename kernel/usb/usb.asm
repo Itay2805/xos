@@ -259,7 +259,9 @@ align 4
 ; In\	BH = Endpoint
 ; In\	ESI = Setup packet data
 ; In\	EDI = Data stage, if present
-; In\	ECX = Size of data stage, zero if not present
+; In\	ECX = Size of data stage, zero if not present, bit 31 is direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
 ; Out\	EAX = 0 on success
 
 usb_setup:
@@ -361,7 +363,7 @@ usb_assign_addresses:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
-	mov ecx, 18
+	mov ecx, 18 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0
@@ -407,7 +409,7 @@ usb_assign_addresses:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
-	mov ecx, 18
+	mov ecx, 18 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0
@@ -521,7 +523,7 @@ usb_get_strings:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
-	mov ecx, 255
+	mov ecx, 255 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0
@@ -567,7 +569,7 @@ usb_get_strings:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
-	mov ecx, 18
+	mov ecx, 18 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0
@@ -597,7 +599,7 @@ usb_get_strings:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
-	mov ecx, 255
+	mov ecx, 255 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0
@@ -647,7 +649,7 @@ usb_get_strings:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_string_descriptor
-	mov ecx, 255
+	mov ecx, 255 or 0x80000000	; device to host
 	call usb_setup
 
 	cmp eax, 0

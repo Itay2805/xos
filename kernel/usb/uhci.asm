@@ -289,7 +289,9 @@ align 4
 ; In\	BH = Endpoint
 ; In\	ESI = Setup packet data
 ; In\	EDI = Data stage, if present
-; In\	ECX = Size of data stage, zero if not present
+; In\	ECX = Size of data stage, zero if not present, bit 31 is direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
 ; Out\	EAX = 0 on success
 
 uhci_setup:
@@ -389,6 +391,21 @@ uhci_setup:
 	cmp [.data_size], 0
 	je .no_data
 
+	; data packet is IN or OUT token?
+	test [.data_size], 0x80000000
+	jnz .data_in
+
+.data_out:
+	; Status is opposite direction of data
+	mov [.data_token], UHCI_PACKET_OUT
+	mov [.status_token], UHCI_PACKET_IN
+	jmp .continue_descriptors
+
+.data_in:
+	mov [.data_token], UHCI_PACKET_IN
+	mov [.status_token], UHCI_PACKET_OUT
+
+.continue_descriptors:
 	; construct second TD
 	mov edi, [.framelist]
 	add edi, 128+64
@@ -400,6 +417,7 @@ uhci_setup:
 	stosd
 
 	mov eax, [.data_size]
+	and eax, 0x7FFFFFFF
 	dec eax
 	shl eax, 21
 	movzx ebx, [.address]
@@ -408,7 +426,7 @@ uhci_setup:
 	movzx ebx, [.endpoint]
 	shl ebx, 15
 	or eax, ebx
-	or eax, UHCI_PACKET_IN
+	or eax, [.data_token]
 	or eax, 1 shl 19	; data 1
 	stosd
 
@@ -437,7 +455,7 @@ uhci_setup:
 	movzx ebx, [.endpoint]
 	shl ebx, 15
 	or eax, ebx
-	or eax, UHCI_PACKET_OUT
+	or eax, [.status_token]
 	stosd
 
 	mov eax, 0	; buffer..
@@ -612,6 +630,8 @@ align 4
 .packet				dd 0
 .data				dd 0
 .data_size			dd 0
+.data_token			dd 0
+.status_token			dd 0
 .io				dw 0
 .address			db 0
 .endpoint			db 0

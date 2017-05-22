@@ -67,7 +67,7 @@ usb_hid_init_mouse:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, usb_device_descriptor
-	mov ecx, 18
+	mov ecx, 18 or 0x80000000
 	call usb_setup
 
 	cmp eax, 0
@@ -103,7 +103,7 @@ usb_hid_init_mouse:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, [.configuration]
-	mov ecx, 256
+	mov ecx, 256 or 0x80000000
 	call usb_setup
 
 	cmp eax, 0
@@ -282,7 +282,7 @@ usb_hid_update_mouse:
 	;mov bh, 0
 	;mov esi, usb_setup_packet
 	;mov edi, mouse_packet
-	;mov ecx, 3
+	;mov ecx, 3 or 0x80000000
 	;call usb_setup
 
 	;cmp eax, -1
