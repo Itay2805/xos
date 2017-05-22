@@ -51,7 +51,7 @@ usb_hid_init_mouse:
 
 	mov eax, [usb_controllers_count]
 	cmp [.controller], eax
-	jge .done
+	jge .no_mouse
 
 	; request a device descriptor
 	mov [usb_setup_packet.request_type], 0x80
@@ -196,6 +196,14 @@ usb_hid_init_mouse:
 	mov [usb_mouse_interval], USB_HID_DEFAULT_INTERVAL
 
 .done:
+	ret
+
+.no_mouse:
+	mov [usb_mouse_controller], 0
+	mov [usb_mouse_address], 0
+	mov [usb_mouse_endpoint], 0
+	mov [usb_mouse_interval], 0
+
 	ret
 
 align 4
