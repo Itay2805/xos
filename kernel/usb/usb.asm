@@ -83,7 +83,7 @@ USB_ENDPOINT_SIZE		= 7
 
 ; Language Code For English
 USB_LANGID_ENGLISH		= 0x0009	; lowest 9 bits are language ID
-			; highest bits are sublanguage ID, but we don't need that
+						; highest bits are sublanguage ID, but we don't need that
 
 align 4
 usb_controllers			dd 0
@@ -285,6 +285,40 @@ usb_setup:
 	call uhci_setup
 	ret
 
+; usb_interrupt:
+; Sends/receives an interrupt packet
+; In\	EAX = Controller number
+; In\	BL = Device address
+; In\	BH = Endpoint
+; In\	ESI = Interrupt packet
+; In\	ECX = Size of interrupt packet, bit 31 is direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
+; Out\	EAX = 0 on success
+
+usb_interrupt:
+	shl eax, 4		; mul 16
+	add eax, [usb_controllers]
+
+	cmp byte[eax+USB_CONTROLLER_TYPE], USB_UHCI
+	je .uhci
+
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_OHCI
+	;je .ohci
+
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_EHCI
+	;je .ehci
+
+	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_XHCI
+	;je .xhci
+
+	mov eax, -1
+	ret
+
+.uhci:
+	call uhci_interrupt
+	ret
+
 ; usb_assign_addresses:
 ; Assigns addresses to USB devices
 ; In\	EAX = Controller number
@@ -423,6 +457,8 @@ usb_assign_addresses:
 	cmp [usb_device_descriptor.class], USB_HUB_CLASS	; USB hub?
 	jne .next
 
+	; initialize the hub before continuing
+	; this will let us assign addresses to devices attached to hubs as well
 	mov eax, [.controller]
 	mov bl, [.current_address]
 	call usb_hub_init

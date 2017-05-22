@@ -6,18 +6,26 @@ use32
 
 USB_HID_DEFAULT_INTERVAL		= 10	; if the update interval is invalid..
 USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
-USB_HID_REPORT				= 1	; request a report packet from a HID device
+USB_HID_GET_REPORT			= 1	; request a report packet from a HID device
+
+
+; These variables are used by the timer IRQ to keep track of whether or
+; not to update the USB HID device states by polling...
+align 4
+usb_mouse_time				dd 0
+usb_keyboard_time			dd 0
 
 align 4
 usb_mouse_controller			dd 0
 usb_mouse_interval			dd 0
-usb_hid_time				dd 0
 usb_mouse_address			db 0
+usb_mouse_endpoint			db 0
 
 align 4
 usb_keyboard_controller			dd 0
 usb_keyboard_interval			dd 0
 usb_keyboard_address			db 0
+usb_keyboard_endpoint			db 0
 
 ; usb_hid_init:
 ; Detects and initializes USB HID devices
@@ -34,7 +42,6 @@ usb_hid_init:
 usb_hid_init_mouse:
 	; find a HID device, then ensure it is a mouse
 	; then save its information..
-
 	mov [.address], 1
 	mov [.controller], 0
 
@@ -145,7 +152,7 @@ usb_hid_init_mouse:
 
 	; does it have endpoints?
 	cmp byte[esi+USB_INTERFACE_ENDPOINTS], 0
-	je .control_endpoint
+	je .done
 
 	; check first endpoint
 	add esi, USB_INTERFACE_SIZE
@@ -159,22 +166,25 @@ usb_hid_init_mouse:
 	and eax, 0xFF
 	mov [usb_mouse_interval], eax
 
+	mov al, [esi+USB_ENDPOINT_ADDRESS]
+	and al, 0x0F		; endpoint number
+	mov [usb_mouse_endpoint], al
+
 	jmp .initialize
 
 .try_next_endpoint:
 	add esi, USB_ENDPOINT_SIZE
 	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
-	jz .control_endpoint
+	jz .done
 
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
 	mov [usb_mouse_interval], eax
 
-	jmp .initialize
-
-.control_endpoint:
-	mov [usb_mouse_interval], USB_HID_DEFAULT_INTERVAL
+	mov al, [esi+USB_ENDPOINT_ADDRESS]
+	and al, 0x0F		; endpoint number
+	mov [usb_mouse_endpoint], al
 
 .initialize:
 	cmp [usb_mouse_interval], 0
@@ -200,23 +210,47 @@ align 4
 ; Updates the mouse status
 
 usb_hid_update_mouse:
-	mov [usb_setup_packet.request_type], 0xA1
-	mov [usb_setup_packet.request], USB_HID_REPORT
-	mov [usb_setup_packet.value], 0x100
-	mov [usb_setup_packet.index], 0
-	mov [usb_setup_packet.length], 3
+	; Notice:
+	; The USB HID Specification tells us not to use the "get report"
+	; request for polling for mouse movement.
+	; For this reason, I commented out the code below and implemented
+	; USB interrupt transfers instead...
+
+	;mov [usb_setup_packet.request_type], 0xA1
+	;mov [usb_setup_packet.request], USB_HID_GET_REPORT
+	;mov [usb_setup_packet.value], 0x100
+	;mov [usb_setup_packet.index], 0
+	;mov [usb_setup_packet.length], 3
+
+	;mov eax, [usb_mouse_controller]
+	;mov bl, [usb_mouse_address]
+	;mov bh, 0
+	;mov esi, usb_setup_packet
+	;mov edi, mouse_packet
+	;mov ecx, 3
+	;call usb_setup
+
+	;cmp eax, -1
+	;je .done
+
+	; Receive mouse state using interrupt..
+	mov edi, mouse_packet
+	mov al, 0
+	mov ecx, 3
+	rep stosb
 
 	mov eax, [usb_mouse_controller]
 	mov bl, [usb_mouse_address]
-	mov bh, 0
-	mov esi, usb_setup_packet
-	mov edi, mouse_packet
-	mov ecx, 3
-	call usb_setup
+	mov bh, [usb_mouse_endpoint]
+	mov esi, mouse_packet
+	mov ecx, 3 or 0x80000000	; packet size 3 bytes, bit 31 set to indicate --
+					; -- packet is from device to host
+	call usb_interrupt
 
 	cmp eax, -1
 	je .done
 
+	; update mouse position and inform the window manager if necessary
 	call update_usb_mouse
 
 	test [mouse_packet.data], MOUSE_LEFT_BTN

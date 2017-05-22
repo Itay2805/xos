@@ -624,6 +624,245 @@ align 4
 .host_msg			db "usb-uhci: host error in setup packet.",10,0
 .process_msg			db "usb-uhci: process error in setup packet.",10,0
 
+; uhci_interrupt:
+; Sends/receives an interrupt packet
+; In\	EAX = Pointer to controller information
+; In\	BL = Device address
+; In\	BH = Endpoint
+; In\	ESI = Interrupt packet
+; In\	ECX = Bits 0-30: Size of interrupt packet, bit 31: direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
+; Out\	EAX = 0 on success
+
+uhci_interrupt:
+	mov [.controller], eax
+	mov [.packet], esi
+	mov [.size], ecx
+
+	and bl, 0x7F
+	mov [.address], bl
+	and bh, 0x0F
+	mov [.endpoint], bh
+
+	; if there is no data to be transferred, ignore the request
+	mov ecx, [.size]
+	and ecx, 0x7FFFFFFF
+	cmp ecx, 0
+	je .finish2
+
+	mov eax, [.controller]
+	mov edx, [eax+USB_CONTROLLER_BASE]
+	mov [.io], dx		; I/O port
+
+	; physical addresses for the DMA to be happy...
+	mov eax, [.packet]
+	call virtual_to_physical
+	mov [.packet], eax
+
+	mov eax, [uhci_framelist]
+	mov [.framelist], eax
+	call virtual_to_physical
+	mov [.framelist_phys], eax
+
+	; construct the frame list
+	mov edi, [.framelist]
+	mov eax, [.framelist_phys]	; pointer to first TD
+	add eax, 32
+	stosd
+	mov eax, 1			; terminate list
+	stosd
+
+	; construct the first and only TD
+	mov edi, [.framelist]
+	add edi, 32
+
+	mov eax, 1			; link pointer invalid
+	stosd
+
+	; 3 error limit, active, low speed
+	mov eax, (3 shl 27) or (1 shl 23) or (1 shl 26)
+	stosd
+
+	; data size and direction
+	mov eax, [.size]
+	dec eax
+	and ecx, 7	; maximum size of interrupt packet for low-speed device
+	shl eax, 21
+	movzx ebx, [.address]
+	shl ebx, 8
+	or eax, ebx
+	movzx ebx, [.endpoint]
+	shl ebx, 15
+	or eax, ebx
+	;or eax, 1 shl 19	; data 1
+
+	test [.size], 0x80000000	; device to host?
+	jnz .in_packet
+
+.out_packet:
+	or eax, UHCI_PACKET_OUT
+	jmp .buffer_dword
+
+.in_packet:
+	or eax, UHCI_PACKET_IN
+
+.buffer_dword:
+	stosd
+
+	; actual data buffer
+	mov eax, [.packet]
+	stosd
+
+	mov eax, 0		; pad out remaining space...
+	stosd
+	stosd
+	stosd
+	stosd
+
+.send_packet:
+	;wbinvd
+
+	; tell the uhci about the frame list
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+	mov dx, [.io]
+	add dx, UHCI_FRAMELIST
+	mov eax, [.framelist_phys]
+	out dx, eax
+
+	mov dx, [.io]
+	add dx, UHCI_FRAME
+	mov ax, 0
+	out dx, ax
+	call iowait
+
+	mov dx, [.io]
+	in ax, dx
+	mov ax, UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+.wait:
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	in ax, dx
+
+	test ax, UHCI_STATUS_ERROR_INTERRUPT
+	jnz .interrupt
+
+	test ax, UHCI_STATUS_ERROR_PROCESS
+	jnz .process
+
+	test ax, UHCI_STATUS_ERROR_HOST
+	jnz .host
+
+	test ax, UHCI_STATUS_HALTED
+	jnz .finish
+
+	test ax, UHCI_STATUS_INTERRUPT
+	jnz .finish
+
+	jmp .wait
+
+.interrupt:
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+	; clear status
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	mov ax, 0x3F
+	out dx, ax
+	;call iowait
+
+	;mov esi, .interrupt_msg
+	;call kprint
+
+	mov eax, -1
+	ret
+
+.host:
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+	; clear status
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	mov ax, 0x3F
+	out dx, ax
+	;call iowait
+
+	;mov esi, .host_msg
+	;call kprint
+
+	mov eax, -1
+	ret
+
+.process:
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+	; clear status
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	mov ax, 0x3F
+	out dx, ax
+	;call iowait
+
+	;mov esi, .process_msg
+	;call kprint
+
+	mov eax, -1
+	ret
+
+.finish:
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_RUN
+	out dx, ax
+	;call iowait
+
+	; clear status
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	mov ax, 0x3F
+	out dx, ax
+	;call iowait
+
+.finish2:
+	mov eax, 0
+	ret
+
+align 4
+.controller			dd 0
+.packet				dd 0
+.size				dd 0
+.io				dw 0
+.address			db 0
+.endpoint			db 0
+
+align 4
+.framelist			dd 0
+.framelist_phys			dd 0
+
+.interrupt_msg			db "usb-uhci: interrupt error in interrupt packet.",10,0
+.host_msg			db "usb-uhci: host error in interrupt packet.",10,0
+.process_msg			db "usb-uhci: process error in interrupt packet.",10,0
+
 
 
 

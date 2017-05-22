@@ -51,27 +51,28 @@ pit_irq:
 	pusha
 
 	inc [timer_ticks]
-	inc [usb_hid_time]
+	inc [usb_mouse_time]
+	inc [usb_keyboard_time]
 
 	cmp [current_task], 0
 	je .idle
 
 .non_idle:
 	inc [nonidle_time]
-	jmp .check_hid
+	jmp .check_mouse
 
 .idle:
 	inc [idle_time]
 
-.check_hid:
+.check_mouse:
 	mov eax, [usb_mouse_interval]
 	cmp eax, 0
 	je .done
 
-	cmp [usb_hid_time], eax
+	cmp [usb_mouse_time], eax
 	jl .done
 
-	mov [usb_hid_time], 0
+	mov [usb_mouse_time], 0
 	call usb_hid_update_mouse
 
 .done:
