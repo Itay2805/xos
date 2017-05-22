@@ -67,13 +67,24 @@ pit_irq:
 .check_mouse:
 	mov eax, [usb_mouse_interval]
 	cmp eax, 0
-	je .done
+	je .check_keyboard
 
 	cmp [usb_mouse_time], eax
-	jl .done
+	jl .check_keyboard
 
 	mov [usb_mouse_time], 0
 	call usb_hid_update_mouse
+
+.check_keyboard:
+	mov eax, [usb_keyboard_interval]
+	cmp eax, 0
+	je .done
+
+	cmp [usb_keyboard_time], eax
+	jl .done
+
+	mov [usb_keyboard_time], 0
+	call usb_hid_update_keyboard
 
 .done:
 	mov al, 0x20

@@ -11,6 +11,16 @@ USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
 USB_HID_GET_REPORT			= 0x01	; request a report packet from a HID device
 USB_HID_SET_PROTOCOL			= 0x0B
 
+; USB Keyboard Modifier Bitfield
+USB_KEYBOARD_LEFT_CTRL			= 0x01
+USB_KEYBOARD_LEFT_SHIFT			= 0x02
+USB_KEYBOARD_LEFT_ALT			= 0x04
+USB_KEYBOARD_LEFT_GUI			= 0x08
+USB_KEYBOARD_RIGHT_CTRL			= 0x10
+USB_KEYBOARD_RIGHT_SHIFT		= 0x20
+USB_KEYBOARD_RIGHT_ALT			= 0x40
+USB_KEYBOARD_RIGHT_GUI			= 0x80
+
 ; These variables are used by the timer IRQ to keep track of whether or
 ; not to update the USB HID device states by polling...
 align 4
@@ -34,7 +44,7 @@ usb_keyboard_endpoint			db 0
 
 usb_hid_init:
 	call usb_hid_init_mouse
-	;call usb_hid_init_keyboard
+	call usb_hid_init_keyboard
 
 	ret
 
@@ -398,5 +408,272 @@ update_usb_mouse:
 
 .quit:
 	ret
+
+
+
+; --- END OF USB MOUSE CODE ---
+; --- BEGINNING OF USB KEYBOARD CODE ---
+
+
+; usb_hid_init_keyboard:
+; Detects and initializes USB HID keyboard
+
+usb_hid_init_keyboard:
+	; find a HID device, then ensure it is a keyboard
+	; then save its information..
+	mov [.address], 1
+	mov [.controller], 0
+
+.loop:
+	cmp [.address], 127
+	jge .next_controller
+
+	mov eax, [usb_controllers_count]
+	cmp [.controller], eax
+	jge .no_keyboard
+
+	; request a device descriptor
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_DEVICE_DESCRIPTOR shl 8
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 18
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, usb_device_descriptor
+	mov ecx, 18 or 0x80000000
+	call usb_setup
+
+	cmp eax, 0
+	jne .next
+
+	; ensure the device class and subclass are zero
+	cmp [usb_device_descriptor.class], 0
+	jne .next
+
+	cmp [usb_device_descriptor.subclass], 0
+	jne .next
+
+	cmp [usb_device_descriptor.protocol], 0
+	jne .next
+
+	; at least one configuration!
+	cmp [usb_device_descriptor.configurations], 1
+	jl .next
+
+	; request configuration descriptor
+	mov ecx, 256
+	call kmalloc
+	mov [.configuration], eax
+
+	mov [usb_setup_packet.request_type], 0x80
+	mov [usb_setup_packet.request], USB_GET_DESCRIPTOR
+	mov [usb_setup_packet.value], USB_CONFIGURATION_DESCRIPTOR shl 8	; configuration zero
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 256
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, [.configuration]
+	mov ecx, 256 or 0x80000000
+	call usb_setup
+
+	cmp eax, 0
+	jne .next
+
+	; check the first interface
+	mov esi, [.configuration]
+	add esi, USB_CONFIGURATION_SIZE
+
+	cmp byte[esi+USB_INTERFACE_CLASS], 3		; HID?
+	jne .next
+
+	cmp byte[esi+USB_INTERFACE_SUBCLASS], 1		; boot protocol?
+	jne .next
+
+	cmp byte[esi+USB_INTERFACE_PROTOCOL], 1		; keyboard?
+	jne .next
+
+	jmp .found
+
+.next:
+	inc [.address]
+	jmp .loop
+
+.next_controller:
+	inc [.controller]
+	mov [.address], 1
+	jmp .loop
+
+.found:
+	mov esi, .found_msg
+	call kprint
+	movzx eax, [.address]
+	call int_to_string
+	call kprint
+	mov esi, .found_msg2
+	call kprint
+	mov eax, [.controller]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	mov eax, [.controller]
+	mov [usb_keyboard_controller], eax
+	mov al, [.address]
+	mov [usb_keyboard_address], al
+
+	mov esi, [.configuration]
+	add esi, USB_CONFIGURATION_SIZE
+
+	; does it have endpoints?
+	cmp byte[esi+USB_INTERFACE_ENDPOINTS], 0
+	je .done
+
+	; check first endpoint
+	add esi, USB_INTERFACE_SIZE
+	add esi, USB_HID_DESCRIPTOR_SIZE
+
+	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
+	jz .try_next_endpoint
+
+	; save interval
+	mov al, [esi+USB_ENDPOINT_INTERVAL]
+	and eax, 0xFF
+	mov [usb_keyboard_interval], eax
+
+	mov al, [esi+USB_ENDPOINT_ADDRESS]
+	and al, 0x0F		; endpoint number
+	mov [usb_keyboard_endpoint], al
+
+	jmp .initialize
+
+.try_next_endpoint:
+	add esi, USB_ENDPOINT_SIZE
+	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
+	jz .done
+
+	; save interval
+	mov al, [esi+USB_ENDPOINT_INTERVAL]
+	and eax, 0xFF
+	mov [usb_keyboard_interval], eax
+
+	mov al, [esi+USB_ENDPOINT_ADDRESS]
+	and al, 0x0F		; endpoint number
+	mov [usb_keyboard_endpoint], al
+
+.initialize:
+	; set the configuration
+	mov [usb_setup_packet.request_type], 0x00
+	mov [usb_setup_packet.request], USB_SET_CONFIGURATION
+	mov esi, [.configuration]
+	movzx ax, byte[esi+USB_CONFIGURATION_VALUE]
+	mov [usb_setup_packet.value], ax		; configuration value
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; enable boot protocol
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_PROTOCOL
+	mov [usb_setup_packet.value], 0		; boot
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; free the memory used by the configuration
+	mov eax, [.configuration]
+	call kfree
+
+	cmp [usb_keyboard_interval], 0
+	je .default
+
+	jmp .done
+
+.default:
+	mov [usb_keyboard_interval], USB_HID_DEFAULT_INTERVAL
+
+.done:
+	ret
+
+.no_keyboard:
+	mov [usb_keyboard_controller], 0
+	mov [usb_keyboard_address], 0
+	mov [usb_keyboard_endpoint], 0
+	mov [usb_keyboard_interval], 0
+
+	ret
+
+align 4
+.controller				dd 0
+.configuration				dd 0
+.address				db 1
+
+.found_msg				db "usb-hid: found USB keyboard at address ",0
+.found_msg2				db ", controller ",0
+
+; usb_hid_update_keyboard:
+; Updates the USB keyboard status
+
+usb_hid_update_keyboard:
+	; receive a report using interrupt
+	mov edi, usb_keyboard_report
+	xor al, al
+	mov ecx, 8
+	rep stosb
+
+	mov eax, [usb_keyboard_controller]
+	mov bl, [usb_keyboard_address]
+	mov bh, [usb_keyboard_endpoint]
+	mov esi, usb_keyboard_report
+	mov ecx, 3 or 0x80000000	; 3 bytes only, device to host
+	call usb_interrupt
+
+	cmp eax, -1
+	je .done
+
+	; TO-DO: determine key pressed here!
+	; TO-DO: convert PS/2 scancodes to USB scancodes for applications' usage
+
+.done:
+	ret
+
+; USB Keyboard Boot Report
+align 4
+usb_keyboard_report:
+	.modifier			db 0
+	.reserved			db 0		; OEM-specific use
+	.key				db 0
+
+	; this report may be up to 8 bytes, but we only need these three bytes...
+
+
+
 
 
