@@ -707,7 +707,7 @@ uhci_interrupt:
 	; data size and direction
 	mov eax, [.size]
 	dec eax
-	and ecx, 7	; maximum size of interrupt packet for low-speed device
+	and eax, 7	; maximum size of interrupt packet for low-speed device
 	shl eax, 21
 	movzx ebx, [.address]
 	shl ebx, 8
