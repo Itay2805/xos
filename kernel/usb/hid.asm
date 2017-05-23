@@ -9,7 +9,8 @@ USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
 
 ; USB HID-Specific Setup Requests
 USB_HID_GET_REPORT			= 0x01	; request a report packet from a HID device
-USB_HID_SET_PROTOCOL			= 0x0B
+USB_HID_SET_PROTOCOL			= 0x0B	; set report/boot protocol
+USB_HID_SET_IDLE			= 0x0A
 
 ; USB Keyboard Modifier Bitfield
 USB_KEYBOARD_LEFT_CTRL			= 0x01
@@ -20,6 +21,12 @@ USB_KEYBOARD_RIGHT_CTRL			= 0x10
 USB_KEYBOARD_RIGHT_SHIFT		= 0x20
 USB_KEYBOARD_RIGHT_ALT			= 0x40
 USB_KEYBOARD_RIGHT_GUI			= 0x80
+
+; USB Keyboard Scancodes
+USB_SCANCODE_RIGHT			= 79
+USB_SCANCODE_LEFT			= 80
+USB_SCANCODE_DOWN			= 81
+USB_SCANCODE_UP				= 82
 
 ; These variables are used by the timer IRQ to keep track of whether or
 ; not to update the USB HID device states by polling...
@@ -38,6 +45,15 @@ usb_keyboard_controller			dd 0
 usb_keyboard_interval			dd 0
 usb_keyboard_address			db 0
 usb_keyboard_endpoint			db 0
+
+; for holding keys...
+; USB implements this in software and not hardware, unlike PS/2
+align 4
+usb_keyboard_hold			dd 0
+usb_keyboard_timestamp			dd 0
+usb_keyboard_old_timestamp		dd 0
+usb_keyboard_repeat_check		dd 0	; interval * 7
+usb_keyboard_repeat			db 0
 
 ; usb_hid_init:
 ; Detects and initializes USB HID devices
@@ -415,6 +431,7 @@ update_usb_mouse:
 ; --- BEGINNING OF USB KEYBOARD CODE ---
 
 
+
 ; usb_hid_init_keyboard:
 ; Detects and initializes USB HID keyboard
 
@@ -569,6 +586,11 @@ usb_hid_init_keyboard:
 	mov [usb_keyboard_endpoint], al
 
 .initialize:
+	; for repeat checking...
+	mov eax, [usb_keyboard_interval]
+	shl eax, 3		; mul 8
+	mov [usb_keyboard_repeat_check], eax
+
 	; set the configuration
 	mov [usb_setup_packet.request_type], 0x00
 	mov [usb_setup_packet.request], USB_SET_CONFIGURATION
@@ -583,6 +605,24 @@ usb_hid_init_keyboard:
 	mov bh, 0
 	mov esi, usb_setup_packet
 	mov edi, 0		; no data stage
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
+	; disable reports unless the device has something to report
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	mov [usb_setup_packet.value], 0	; duration indefinite, all reports
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0
 	mov ecx, 0
 	call usb_setup
 
@@ -642,10 +682,12 @@ align 4
 ; Updates the USB keyboard status
 
 usb_hid_update_keyboard:
+	inc [.runs]
+
 	; receive a report using interrupt
 	mov edi, usb_keyboard_report
 	xor al, al
-	mov ecx, 8
+	mov ecx, 3
 	rep stosb
 
 	mov eax, [usb_keyboard_controller]
@@ -655,13 +697,134 @@ usb_hid_update_keyboard:
 	mov ecx, 3 or 0x80000000	; 3 bytes only, device to host
 	call usb_interrupt
 
-	cmp eax, -1
-	je .done
+	cmp eax, 0
+	jne .no_key
 
-	; TO-DO: determine key pressed here!
-	; TO-DO: convert PS/2 scancodes to USB scancodes for applications' usage
+	cmp [usb_keyboard_report.key], 0
+	je .no_key
 
-.done:
+	cmp [usb_keyboard_report.key], USB_SCANCODE_UP
+	je .up
+
+	cmp [usb_keyboard_report.key], USB_SCANCODE_DOWN
+	je .down
+
+	cmp [usb_keyboard_report.key], USB_SCANCODE_LEFT
+	je .left
+
+	cmp [usb_keyboard_report.key], USB_SCANCODE_RIGHT
+	je .right
+
+	jmp .continue
+
+.up:
+	mov [usb_keyboard_report.key], PS2_SCANCODE_UP
+	jmp .continue
+
+.down:
+	mov [usb_keyboard_report.key], PS2_SCANCODE_DOWN
+	jmp .continue
+
+.left:
+	mov [usb_keyboard_report.key], PS2_SCANCODE_LEFT
+	jmp .continue
+
+.right:
+	mov [usb_keyboard_report.key], PS2_SCANCODE_RIGHT
+
+.continue:
+	; make timestamp
+	mov eax, [usb_keyboard_timestamp]
+	mov [usb_keyboard_old_timestamp], eax
+
+	mov eax, [timer_ticks]
+	mov [usb_keyboard_timestamp], eax
+
+	mov al, [usb_keyboard_report.key]
+	cmp al, [last_scancode]
+	je .check_repeat
+
+.normal:
+	mov al, [usb_keyboard_report.key]
+	mov [last_scancode], al			; store the scancode
+	mov [usb_keyboard_repeat], 0
+	mov [.repeat], 0
+
+.event:
+	call usb_determine_key
+	;mov al, [last_character]
+	;call com1_send_byte
+	call wm_kbd_event
+	ret
+
+.check_repeat:
+	mov eax, [usb_keyboard_timestamp]
+	sub eax, [usb_keyboard_old_timestamp]
+	cmp eax, [usb_keyboard_repeat_check]
+	jle .holding_key
+
+	jmp .normal
+
+.holding_key:
+	cmp [usb_keyboard_repeat], 1
+	je .event
+
+	cmp [.repeat], 0
+	je .make_initial_run
+
+	mov eax, [.runs]
+	sub eax, [.initial_run]
+	cmp eax, 8
+	jg .start_holding
+
+	jmp .no_key
+
+.make_initial_run:
+	mov [.repeat], 1
+	mov eax, [.runs]
+	mov [.initial_run], eax
+	jmp .no_key
+
+.start_holding:
+	mov [usb_keyboard_repeat], 1
+	jmp .event
+
+.no_key:
+	;mov [last_scancode], 0
+	;mov [last_character], 0
+	ret
+
+align 4
+.runs				dd 0	; # of times this routine ran
+.initial_run			dd 0
+.repeat				db 0
+
+; usb_determine_key:
+; Parses the USB keyboard report and stores information in last_character
+
+usb_determine_key:
+	; test for shift
+	test [usb_keyboard_report.modifier], USB_KEYBOARD_LEFT_SHIFT
+	jnz .shift
+
+	test [usb_keyboard_report.modifier], USB_KEYBOARD_RIGHT_SHIFT
+	jnz .shift
+
+	; TO-DO: add support for caps lock here!
+
+	movzx esi, [last_scancode]
+	add esi, usb_ascii_codes
+	mov al, [esi]
+	mov [last_character], al
+	ret
+
+.shift:
+	; TO-DO: add support for caps lock here, too!
+
+	movzx esi, [last_scancode]
+	add esi, usb_ascii_codes_shift
+	mov al, [esi]
+	mov [last_character], al
 	ret
 
 ; USB Keyboard Boot Report
@@ -670,8 +833,7 @@ usb_keyboard_report:
 	.modifier			db 0
 	.reserved			db 0		; OEM-specific use
 	.key				db 0
-
-	; this report may be up to 8 bytes, but we only need these three bytes...
+	; this report may be up to 8 bytes, but we only need these bytes...
 
 
 

@@ -41,6 +41,12 @@ PS2_MOUSE_DISABLE		= 0xF5
 PS2_MOUSE_SET_RESOLUTION	= 0xE8
 PS2_MOUSE_SET_SPEED		= 0xF3
 
+; Scancodes for the arrow keys ;)
+PS2_SCANCODE_UP			= 72
+PS2_SCANCODE_LEFT		= 75
+PS2_SCANCODE_RIGHT		= 77
+PS2_SCANCODE_DOWN		= 80
+
 ; Keyboard Stuff
 kbd_status			db 0
 kbd_leds			db 0
@@ -314,25 +320,25 @@ ps2_kbd_irq:
 	jmp .normal
 
 .normal:
-	add eax, ascii_codes
+	add eax, ps2_ascii_codes
 	mov al, [eax]
 	mov [last_character], al
 	jmp .event
 
 .shift:
-	add eax, ascii_codes_shift
+	add eax, ps2_ascii_codes_shift
 	mov al, [eax]
 	mov [last_character], al
 	jmp .event
 
 .caps_lock:
-	add eax, ascii_codes_caps_lock
+	add eax, ps2_ascii_codes_caps_lock
 	mov al, [eax]
 	mov [last_character], al
 	jmp .event
 
 .shift_caps_lock:
-	add eax, ascii_codes_shift_caps_lock
+	add eax, ps2_ascii_codes_shift_caps_lock
 	mov al, [eax]
 	mov [last_character], al
 	jmp .event

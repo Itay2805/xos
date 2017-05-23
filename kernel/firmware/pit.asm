@@ -70,7 +70,7 @@ pit_irq:
 	je .check_keyboard
 
 	cmp [usb_mouse_time], eax
-	jl .check_keyboard
+	jle .check_keyboard
 
 	mov [usb_mouse_time], 0
 	call usb_hid_update_mouse
@@ -81,7 +81,7 @@ pit_irq:
 	je .done
 
 	cmp [usb_keyboard_time], eax
-	jl .done
+	jle .done
 
 	mov [usb_keyboard_time], 0
 	call usb_hid_update_keyboard
