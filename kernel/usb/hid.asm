@@ -238,6 +238,24 @@ usb_hid_init_mouse:
 	cmp eax, 0
 	jne .done
 
+	; disable reports unless the device has something to report
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
+
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0
+	mov ecx, 0
+	call usb_setup
+
+	cmp eax, 0
+	jne .done
+
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
 	mov [usb_setup_packet.request], USB_HID_SET_PROTOCOL
@@ -311,8 +329,8 @@ usb_hid_update_mouse:
 	;mov ecx, 3 or 0x80000000
 	;call usb_setup
 
-	;cmp eax, -1
-	;je .done
+	;cmp eax, 0
+	;jne .done
 
 	; Receive mouse state using interrupt..
 	mov edi, mouse_packet
@@ -328,9 +346,20 @@ usb_hid_update_mouse:
 					; -- packet is from device to host
 	call usb_interrupt
 
-	cmp eax, -1
+	cmp eax, 0
+	jne .done
+
+	; if the mouse packet is empty, ignore it and save CPU time
+	cmp [mouse_packet.data], 0
+	jne .work
+
+	cmp [mouse_packet.x], 0
+	jne .work
+
+	cmp [mouse_packet.y], 0
 	je .done
 
+.work:
 	; update mouse position and inform the window manager if necessary
 	call update_usb_mouse
 
@@ -614,7 +643,7 @@ usb_hid_init_keyboard:
 	; disable reports unless the device has something to report
 	mov [usb_setup_packet.request_type], 0x21
 	mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	mov [usb_setup_packet.value], 0	; duration indefinite, all reports
+	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
 	mov [usb_setup_packet.index], 0
 	mov [usb_setup_packet.length], 0
 
