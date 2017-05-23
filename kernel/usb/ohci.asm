@@ -11,6 +11,7 @@ OHCI_COMMAND				= 0x08
 OHCI_STATUS				= 0x0C
 OHCI_INTERRUPT_ENABLE			= 0x10
 OHCI_INTERRUPT_DISABLE			= 0x14
+OHCI_COMM				= 0x18
 OHCI_CONTROL_HEAD_ED			= 0x20
 OHCI_CONTROL_CURRENT_ED			= 0x24
 OHCI_BULK_HEAD_ED			= 0x28
@@ -29,6 +30,7 @@ OHCI_CONTROL_EXECUTE_BULK		= 0x00000020
 
 ; OHCI Command Register
 OHCI_COMMAND_RESET			= 0x00000001
+OHCI_COMMAND_CONTROL_FILLED		= 0x00000002
 OHCI_COMMAND_OWNERSHIP_CHANGE		= 0x00000008
 
 ; OHCI Status Register
@@ -60,7 +62,7 @@ OHCI_DESCRIPTORS_SIZE			= 8		; 32 KB of descriptors is more than enough
 align 4
 ohci_pci_list				dd 0
 ohci_pci_count				dd 0
-ohci_framelist				dd 0
+ohci_descriptors			dd 0
 ohci_comm				dd 0
 
 ; ohci_init:
@@ -92,11 +94,11 @@ ohci_init:
 	mov ecx, OHCI_DESCRIPTORS_SIZE
 	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
 	call vmm_alloc
-	mov [ohci_framelist], eax
+	mov [ohci_descriptors], eax
 
 	; more space for communications area
 	mov eax, 0
-	mov ecx, 1
+	mov ecx, 6
 	mov dl, PAGE_PRESENT or PAGE_WRITEABLE or PAGE_NO_CACHE
 	call vmm_alloc
 	mov [ohci_comm], eax
@@ -246,6 +248,9 @@ ohci_reset_controller:
 	mov dword[edi+OHCI_INTERRUPT_DISABLE], 0xC000007F	; disable everything
 	mov dword[edi+OHCI_STATUS], 0xC000007F		; clear status
 
+	mov edi, [.mmio]
+	mov dword[edi+OHCI_FM_INTERVAL], 0x2EDF
+
 	; count the downstream ports of the root hub
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_ROOT_DESCRIPTOR_A]
@@ -274,6 +279,7 @@ ohci_reset_controller:
 	jnz .wait_for_port
 
 	or dword[edi], OHCI_PORT_ENABLE		; enable the port
+	wbinvd
 
 	; give it a little time...
 	mov eax, 5
@@ -291,6 +297,324 @@ align 4
 .mmio				dd 0
 .port_count			db 0
 .current_port			db 0
+
+; ohci_setup:
+; Sends a setup packet
+; In\	EAX = Pointer to controller information
+; In\	BL = Device address
+; In\	BH = Endpoint
+; In\	ESI = Setup packet data
+; In\	EDI = Data stage, if present
+; In\	ECX = Size of data stage, zero if not present, bit 31 is direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
+; Out\	EAX = 0 on success
+
+ohci_setup:
+	mov [.controller], eax
+	mov [.packet], esi
+	mov [.data], edi
+	mov [.data_size], ecx
+
+	and bl, 0x7F
+	mov [.address], bl
+	and bh, 0x0F
+	mov [.endpoint], bh
+
+	mov eax, [.controller]
+	mov edx, [eax+USB_CONTROLLER_BASE]
+	mov [.mmio], edx
+
+	; physical addresses for DMA
+	mov eax, [.packet]
+	call virtual_to_physical
+	mov [.packet], eax
+
+	cmp [.data_size], 0	; no data stage?
+	je .skip_data
+
+	mov eax, [.data]
+	call virtual_to_physical
+	mov [.data], eax
+
+.skip_data:
+	; construct the descriptors
+	mov eax, [ohci_descriptors]
+	mov [.descriptors], eax
+	call virtual_to_physical
+	mov [.descriptors_phys], eax
+
+	; construct the endpoint descriptor
+	mov edi, [.descriptors]
+	movzx eax, [.address]		; device address
+	movzx ebx, [.endpoint]		; endpoint
+	shl ebx, 7
+	or eax, ebx
+	mov ebx, 32
+	shl ebx, 16
+	or eax, ebx
+	or eax, 1 shl 13		; low speed device
+	stosd
+
+	; TD tail pointer
+	mov eax, 0xF0000000
+	stosd
+
+	; TD head pointer
+	mov eax, [.descriptors_phys]
+	add eax, 16
+	stosd
+
+	; next endpoint descriptor pointer
+	mov eax, 0
+	stosd
+
+	; construct the first TD
+	mov edi, [.descriptors]
+	add edi, 16
+	mov eax, OHCI_PACKET_SETUP
+	shl eax, 19
+	or eax, 1 shl 25		; data toggle is in TD not ED
+	stosd
+
+	; pointer to setup packet
+	mov eax, [.packet]
+	stosd
+
+	; pointer to second TD
+	mov eax, [.descriptors_phys]
+	add eax, 32
+	stosd
+
+	; pointer to last byte of setup packet
+	mov eax, [.packet]
+	add eax, 7	; size - 1
+	stosd
+
+	; if there is a data stage, we need two TDs for data and status
+	; if not, we only need one TD for status
+	cmp [.data_size], 0
+	je .no_data
+
+	; data direction?
+	test [.data_size], 0x80000000
+	jnz .data_in
+
+.data_out:
+	;mov esi, .out_msg
+	;call kprint
+
+	mov [.data_token], OHCI_PACKET_OUT
+	mov [.status_token], OHCI_PACKET_IN	; status is always opposite of data!
+	jmp .continue
+
+.data_in:
+	;mov esi, .in_msg
+	;call kprint
+
+	mov [.data_token], OHCI_PACKET_IN
+	mov [.status_token], OHCI_PACKET_OUT
+
+.continue:
+	; construct second TD for data
+	mov edi, [.descriptors]
+	add edi, 32
+	mov eax, [.data_token]
+	shl eax, 19
+	or eax, (1 shl 25) or (1 shl 24)	; DATA1
+	stosd
+
+	; pointer to data packet
+	mov eax, [.data]
+	stosd
+
+	; pointer to third TD
+	mov eax, [.descriptors_phys]
+	add eax, 48
+	stosd
+
+	; pointer to last byte of data packet
+	mov eax, [.data]
+	mov ebx, [.data_size]
+	and ebx, 0x7FFFFFFF
+	add eax, ebx
+	dec eax		; size minus one
+	stosd
+
+	; construct third TD for status
+	mov edi, [.descriptors]
+	add edi, 48
+	mov eax, [.status_token]
+	shl eax, 19
+	or eax, 1 shl 25
+	stosd
+
+	; data buffer -- null pointer
+	mov eax, 0
+	stosd
+
+	; next TD -- bad pointer
+	mov eax, 0xF0000000
+	stosd
+
+	; last byte of data buffer -- null pointer
+	mov eax, 0
+	stosd
+
+	jmp .send_packet
+
+.no_data:
+	; construct second TD (status)
+	mov edi, [.descriptors]
+	add edi, 32
+	mov eax, OHCI_PACKET_IN
+	shl eax, 19
+	or eax, 1 shl 25
+	stosd
+
+	; data buffer -- null pointer
+	mov eax, 0
+	stosd
+
+	; next TD -- null pointer
+	mov eax, 0xF0000000
+	stosd
+
+	; last byte of data buffer -- null pointer
+	mov eax, 0
+	stosd
+
+.send_packet:
+	; disable control list execution
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the communications area
+	mov edi, [ohci_comm]
+	mov eax, 0
+	mov ecx, 4096
+	rep stosb
+
+	; send the address of the communications area
+	mov eax, [ohci_comm]
+	call virtual_to_physical
+	mov edi, [.mmio]
+	mov [edi+OHCI_COMM], eax
+
+	; send the address of the ED
+	mov edi, [.mmio]
+	mov eax, [.descriptors_phys]
+	mov [edi+OHCI_CONTROL_HEAD_ED], eax
+
+	mov eax, 0
+	mov [edi+OHCI_CONTROL_CURRENT_ED], eax
+
+	; control list filled
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_COMMAND]
+	or eax, OHCI_COMMAND_CONTROL_FILLED
+	mov [edi+OHCI_COMMAND], eax
+
+	; enable execution
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	mov eax, OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+.wait:
+	;movzx eax, [usb_device_descriptor.length]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
+
+	;mov esi, .wait_msg
+	;call kprint
+
+	mov esi, [.descriptors]
+	mov eax, [esi+8]
+	test eax, 1		; halted!
+	jnz .halted
+
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_STATUS]
+	test eax, OHCI_STATUS_UNRECOVERABLE_ERROR
+	jnz .unrecoverable
+
+	test eax, OHCI_STATUS_FRAME_OVERFLOW
+	jnz .frame_overflow
+
+	;mov eax, [edi+OHCI_CONTROL_CURRENT_ED]
+	;cmp eax, 0
+	;je .done
+
+	mov eax, [edi+OHCI_COMMAND]
+	test eax, OHCI_COMMAND_CONTROL_FILLED
+	jz .done
+
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	test eax, OHCI_CONTROL_EXECUTE_CONTROL
+	jz .done
+
+	mov esi, [.descriptors]
+	mov eax, [esi+8]
+	and eax, 0xFFFFFFF0
+	cmp eax, 0xF0000000
+	je .done
+
+	sti
+	hlt
+	jmp .wait
+
+.unrecoverable:
+	mov esi, .unrecoverable_msg
+	call kprint
+	cli
+	hlt
+
+.frame_overflow:
+	mov esi, .frame_overflow_msg
+	call kprint
+	cli
+	hlt
+
+.halted:
+	mov esi, .halted_msg
+	call kprint
+	cli
+	hlt
+
+.done:
+
+	mov eax, 0
+	ret
+
+align 4
+.controller			dd 0
+.packet				dd 0
+.data				dd 0
+.data_size			dd 0
+.data_token			dd 0
+.status_token			dd 0
+.mmio				dd 0
+.address			db 0
+.endpoint			db 0
+
+align 4
+.descriptors			dd 0
+.descriptors_phys		dd 0
+
+.unrecoverable_msg		db "unrecoverable!",10,0
+.frame_overflow_msg		db "frame overflow!",10,0
+.halted_msg			db "halted",10,0
+.done_msg			db "done",10,0
+.wait_msg			db "wait",10,0
+.out_msg			db "out",10,0
+.in_msg				db "in",10,0
+
 
 
 
