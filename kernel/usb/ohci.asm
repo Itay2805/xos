@@ -251,6 +251,15 @@ ohci_reset_controller:
 	mov edi, [.mmio]
 	mov dword[edi+OHCI_FM_INTERVAL], 0x2EDF
 
+	; set the controller's operational mode
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	or eax, 2 shl 6
+	mov [edi+OHCI_CONTROL], eax
+
+	mov eax, 5
+	call pit_sleep
+
 	; count the downstream ports of the root hub
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_ROOT_DESCRIPTOR_A]
@@ -476,7 +485,7 @@ ohci_setup:
 	mov eax, 0
 	stosd
 
-	; next TD -- null pointer
+	; next TD -- bad pointer
 	mov eax, 0xF0000000
 	stosd
 
@@ -494,7 +503,7 @@ ohci_setup:
 	; clear the communications area
 	mov edi, [ohci_comm]
 	mov eax, 0
-	mov ecx, 4096
+	mov ecx, 256
 	rep stosb
 
 	; send the address of the communications area
@@ -520,74 +529,69 @@ ohci_setup:
 	; enable execution
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_CONTROL]
-	mov eax, OHCI_CONTROL_EXECUTE_CONTROL
+	or eax, OHCI_CONTROL_EXECUTE_CONTROL
+	mov ebx, 2		; operational mode
+	shl ebx, 6
+	or eax, ebx
 	mov [edi+OHCI_CONTROL], eax
 
 .wait:
-	;movzx eax, [usb_device_descriptor.length]
-	;call int_to_string
-	;call kprint
-	;mov esi, newline
-	;call kprint
+	; wait for the controller to finish, while checking for errors
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_STATUS]
 
-	;mov esi, .wait_msg
-	;call kprint
+	test eax, OHCI_STATUS_UNRECOVERABLE_ERROR
+	jnz .error
+
+	test eax, OHCI_STATUS_FRAME_OVERFLOW
+	jnz .error
 
 	mov esi, [.descriptors]
 	mov eax, [esi+8]
-	test eax, 1		; halted!
-	jnz .halted
+
+	; TD head pointer
+	and eax, 0xFFFFFFF0
+	cmp eax, [esi+4]	; head = tail?
+	je .done
+
+	mov eax, [esi+8]
+	test eax, 1		; halted
+	jnz .done
 
 	mov edi, [.mmio]
-	mov eax, [edi+OHCI_STATUS]
-	test eax, OHCI_STATUS_UNRECOVERABLE_ERROR
-	jnz .unrecoverable
-
-	test eax, OHCI_STATUS_FRAME_OVERFLOW
-	jnz .frame_overflow
-
-	;mov eax, [edi+OHCI_CONTROL_CURRENT_ED]
-	;cmp eax, 0
-	;je .done
-
 	mov eax, [edi+OHCI_COMMAND]
 	test eax, OHCI_COMMAND_CONTROL_FILLED
 	jz .done
 
-	mov edi, [.mmio]
-	mov eax, [edi+OHCI_CONTROL]
-	test eax, OHCI_CONTROL_EXECUTE_CONTROL
-	jz .done
-
-	mov esi, [.descriptors]
-	mov eax, [esi+8]
-	and eax, 0xFFFFFFF0
-	cmp eax, 0xF0000000
-	je .done
-
-	sti
-	hlt
 	jmp .wait
+	
 
-.unrecoverable:
-	mov esi, .unrecoverable_msg
+.error:
+	mov esi, .error_msg
 	call kprint
-	cli
-	hlt
+	movzx eax, [.address]
+	call int_to_string
+	call kprint
+	mov esi, .error_msg2
+	call kprint
+	movzx eax, [.endpoint]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
 
-.frame_overflow:
-	mov esi, .frame_overflow_msg
-	call kprint
-	cli
-	hlt
-
-.halted:
-	mov esi, .halted_msg
-	call kprint
-	cli
-	hlt
+	mov eax, -1
+	ret
 
 .done:
+	; clear the "control execute" bit
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the status register
+	mov dword[edi+OHCI_STATUS], 0xC000007F
 
 	mov eax, 0
 	ret
@@ -607,13 +611,8 @@ align 4
 .descriptors			dd 0
 .descriptors_phys		dd 0
 
-.unrecoverable_msg		db "unrecoverable!",10,0
-.frame_overflow_msg		db "frame overflow!",10,0
-.halted_msg			db "halted",10,0
-.done_msg			db "done",10,0
-.wait_msg			db "wait",10,0
-.out_msg			db "out",10,0
-.in_msg				db "in",10,0
+.error_msg			db "usb-ohci: SETUP transfer error on device ",0
+.error_msg2			db " endpoint ",0
 
 
 
