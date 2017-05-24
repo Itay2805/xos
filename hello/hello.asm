@@ -31,7 +31,7 @@ main:
 	mov esi, text		; pointer to text
 	mov cx, 8		; X pos
 	mov dx, 16		; Y pos
-	mov ebx, 0		; color
+	mov ebx, 0xFFFFFF	; color
 	int 0x60		; call kernel
 
 	mov ebp, 3		; redraw screen

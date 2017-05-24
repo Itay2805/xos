@@ -167,13 +167,13 @@ xwidget_redraw:
 	mov bx, 32
 	mov cx, [edi+5]
 	mov dx, [edi+7]
-	mov esi, [xwidget_button_color]
+	mov esi, [xwidget_button_bg]
 	mov edi, [.handle]
 	call xwidget_fill_rect
 
 	mov edi, [.tmp]
 	mov esi, [edi+1]
-	mov ebx, 0
+	mov ebx, [xwidget_button_fg]
 	mov cx, [edi+5]
 	mov dx, [edi+7]
 	add cx, 16

@@ -175,7 +175,7 @@ main:
 	mov cx, 8
 	mov dx, 8
 	mov esi, number_text
-	mov ebx, 0x000000
+	mov ebx, 0xFFFFFF
 	call xwidget_create_label
 	mov [label_handle], eax
 

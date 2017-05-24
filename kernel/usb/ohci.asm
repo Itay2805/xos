@@ -19,6 +19,7 @@ OHCI_BULK_CURRENT_ED			= 0x2C
 OHCI_FM_INTERVAL			= 0x34
 OHCI_FM_REMAINING			= 0x38
 OHCI_FM_NUMBER				= 0x3C
+OHCI_LOW_SPEED_THRESHOLD		= 0x44
 OHCI_ROOT_DESCRIPTOR_A			= 0x48
 OHCI_ROOT_DESCRIPTOR_B			= 0x4C
 OHCI_ROOT_STATUS			= 0x50
@@ -244,6 +245,11 @@ ohci_reset_controller:
 	mov eax, 10
 	call pit_sleep
 
+	; save the frame interval to restore it after the reset
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_FM_INTERVAL]
+	mov [.frame_interval], eax
+
 	; reset the host controller
 	mov edi, [.mmio]
 	mov dword[edi+OHCI_COMMAND], OHCI_COMMAND_RESET
@@ -258,14 +264,27 @@ ohci_reset_controller:
 	; disable all interrupts
 	mov edi, [.mmio]
 	mov dword[edi+OHCI_INTERRUPT_DISABLE], 0xC000007F	; disable everything
-	mov dword[edi+OHCI_STATUS], 0xC000007F		; clear status
+	mov dword[edi+OHCI_STATUS], 0x0000007F		; clear status
+
+	; reload the frame interval
+	mov eax, [.frame_interval]
+	cmp ax, 0			; if zero --
+	je .set_default_interval	; -- set the default interval
 
 	mov edi, [.mmio]
-	;mov dword[edi+OHCI_FM_INTERVAL], 0x2EDF
+	mov [edi+OHCI_FM_INTERVAL], eax
+	jmp .set_operation
 
+.set_default_interval:
+	mov eax, 0x2EDF			; default value according to spec...
+	mov edi, [.mmio]
+	mov [edi+OHCI_FM_INTERVAL], eax
+
+.set_operation:
 	; set the controller's operational mode
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_CONTROL]
+	and eax, not (3 shl 6)
 	or eax, 2 shl 6
 	mov [edi+OHCI_CONTROL], eax
 
@@ -302,20 +321,18 @@ ohci_reset_controller:
 	add edi, OHCI_ROOT_PORTS
 	add edi, [.mmio]
 
-	mov eax, [edi]
-	or eax, OHCI_PORT_SET_POWER
-	mov [edi], eax
+	mov dword[edi], OHCI_PORT_SET_POWER
 
 	mov eax, 10
 	call pit_sleep
 
-	or dword[edi], OHCI_PORT_RESET
+	mov dword[edi], OHCI_PORT_RESET
 
 .wait_for_port:
 	test dword[edi], OHCI_PORT_RESET
 	jnz .wait_for_port
 
-	or dword[edi], OHCI_PORT_ENABLE		; enable the port
+	mov dword[edi], OHCI_PORT_ENABLE	; enable the port
 
 	; give it a little time...
 	mov eax, 5
@@ -326,11 +343,19 @@ ohci_reset_controller:
 	jmp .ports_loop
 
 .done:
+	; Already did this above ^^
+	;mov edi, [.mmio]
+	;mov eax, [edi+OHCI_CONTROL]
+	;and eax, not (3 shl 6)
+	;or eax, 2 shl 6
+	;mov [edi+OHCI_CONTROL], eax
+
 	ret
 
 align 4
 .controller			dd 0
 .mmio				dd 0
+.frame_interval			dd 0
 .port_count			db 0
 .current_port			db 0
 
@@ -410,7 +435,8 @@ ohci_setup:
 	add edi, 16
 	mov eax, OHCI_PACKET_SETUP
 	shl eax, 19
-	or eax, 1 shl 25		; data toggle is in TD not ED
+	or eax, 1 shl 25	; data toggle is in TD not ED
+	or eax, 14 shl 28	; indicate to the OHCI that this TD is new and just being supplied
 	stosd
 
 	; pointer to setup packet
@@ -452,6 +478,7 @@ ohci_setup:
 	mov eax, [.data_token]
 	shl eax, 19
 	or eax, (1 shl 25) or (1 shl 24)	; DATA1
+	or eax, 14 shl 28
 	stosd
 
 	; pointer to data packet
@@ -477,6 +504,7 @@ ohci_setup:
 	mov eax, [.status_token]
 	shl eax, 19
 	or eax, 1 shl 25
+	or eax, 14 shl 28
 	stosd
 
 	; data buffer -- null pointer
@@ -500,6 +528,7 @@ ohci_setup:
 	mov eax, OHCI_PACKET_IN
 	shl eax, 19
 	or eax, 1 shl 25
+	or eax, 14 shl 28
 	stosd
 
 	; data buffer -- null pointer
@@ -523,9 +552,9 @@ ohci_setup:
 
 	; clear the communications area
 	mov edi, [ohci_comm]
-	mov eax, 0
-	mov ecx, 256
-	rep stosb
+	xor eax, eax
+	mov ecx, 256/4
+	rep stosd
 
 	; send the address of the communications area
 	mov eax, [ohci_comm]
@@ -538,7 +567,7 @@ ohci_setup:
 	mov eax, [.descriptors_phys]
 	mov [edi+OHCI_CONTROL_HEAD_ED], eax
 
-	mov eax, 0
+	xor eax, eax
 	mov [edi+OHCI_CONTROL_CURRENT_ED], eax
 
 	; control list filled
@@ -551,9 +580,8 @@ ohci_setup:
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_CONTROL]
 	or eax, OHCI_CONTROL_EXECUTE_CONTROL
-	mov ebx, 2		; operational mode
-	shl ebx, 6
-	or eax, ebx
+	and eax, not (3 shl 6)
+	or eax, 2 shl 6
 	mov [edi+OHCI_CONTROL], eax
 
 .wait:
@@ -575,9 +603,10 @@ ohci_setup:
 	cmp eax, [esi+4]	; head = tail?
 	je .done
 
-	mov eax, [esi+8]
-	test eax, 1		; halted
-	jnz .done
+	; commented this because halted doesn't always mean finished...
+	;mov eax, [esi+8]
+	;test eax, 1		; test for halted
+	;jnz .done
 
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_COMMAND]
@@ -587,6 +616,15 @@ ohci_setup:
 	jmp .wait
 
 .error:
+	; clear the "control execute" bit
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the status register
+	mov dword[edi+OHCI_STATUS], 0x0000007F
+
 	mov esi, .error_msg
 	call kprint
 	movzx eax, [.address]
@@ -611,7 +649,7 @@ ohci_setup:
 	mov [edi+OHCI_CONTROL], eax
 
 	; clear the status register
-	mov dword[edi+OHCI_STATUS], 0xC000007F
+	mov dword[edi+OHCI_STATUS], 0x0000007F
 
 	mov eax, 0
 	ret
