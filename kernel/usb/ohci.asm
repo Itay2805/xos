@@ -37,12 +37,17 @@ OHCI_COMMAND_OWNERSHIP_CHANGE		= 0x00000008
 OHCI_STATUS_WRITE_DONE			= 0x00000002
 OHCI_STATUS_UNRECOVERABLE_ERROR		= 0x00000010
 OHCI_STATUS_FRAME_OVERFLOW		= 0x00000020
+OHCI_STATUS_OWNERSHIP_CHANGE		= 0x40000000
+
+; OHCI Root Hub Register
+OHCI_ROOT_STATUS_LPSC			= 0x00010000
 
 ; OHCI Root Hub Port Registers
 OHCI_PORT_CONNECT			= 0x00000001
 OHCI_PORT_ENABLE			= 0x00000002
 OHCI_PORT_CLEAR_SUSPEND			= 0x00000008
 OHCI_PORT_RESET				= 0x00000010
+OHCI_PORT_SET_POWER			= 0x00000100
 
 ; OHCI Packet Types
 OHCI_PACKET_SETUP			= 0
@@ -232,6 +237,13 @@ ohci_reset_controller:
 	mov edx, [eax+USB_CONTROLLER_BASE]
 	mov [.mmio], edx
 
+	; handoff
+	mov edi, [.mmio]
+	mov dword[edi+OHCI_COMMAND], OHCI_COMMAND_OWNERSHIP_CHANGE
+
+	mov eax, 10
+	call pit_sleep
+
 	; reset the host controller
 	mov edi, [.mmio]
 	mov dword[edi+OHCI_COMMAND], OHCI_COMMAND_RESET
@@ -249,7 +261,7 @@ ohci_reset_controller:
 	mov dword[edi+OHCI_STATUS], 0xC000007F		; clear status
 
 	mov edi, [.mmio]
-	mov dword[edi+OHCI_FM_INTERVAL], 0x2EDF
+	;mov dword[edi+OHCI_FM_INTERVAL], 0x2EDF
 
 	; set the controller's operational mode
 	mov edi, [.mmio]
@@ -257,7 +269,16 @@ ohci_reset_controller:
 	or eax, 2 shl 6
 	mov [edi+OHCI_CONTROL], eax
 
-	mov eax, 5
+	mov eax, 10
+	call pit_sleep
+
+	; turn on power for the root hub
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_ROOT_STATUS]
+	or eax, OHCI_ROOT_STATUS_LPSC
+	mov [edi+OHCI_ROOT_STATUS], eax
+
+	mov eax, 20
 	call pit_sleep
 
 	; count the downstream ports of the root hub
@@ -281,14 +302,20 @@ ohci_reset_controller:
 	add edi, OHCI_ROOT_PORTS
 	add edi, [.mmio]
 
-	mov dword[edi], OHCI_PORT_RESET
+	mov eax, [edi]
+	or eax, OHCI_PORT_SET_POWER
+	mov [edi], eax
+
+	mov eax, 10
+	call pit_sleep
+
+	or dword[edi], OHCI_PORT_RESET
 
 .wait_for_port:
 	test dword[edi], OHCI_PORT_RESET
 	jnz .wait_for_port
 
 	or dword[edi], OHCI_PORT_ENABLE		; enable the port
-	wbinvd
 
 	; give it a little time...
 	mov eax, 5
@@ -410,17 +437,11 @@ ohci_setup:
 	jnz .data_in
 
 .data_out:
-	;mov esi, .out_msg
-	;call kprint
-
 	mov [.data_token], OHCI_PACKET_OUT
 	mov [.status_token], OHCI_PACKET_IN	; status is always opposite of data!
 	jmp .continue
 
 .data_in:
-	;mov esi, .in_msg
-	;call kprint
-
 	mov [.data_token], OHCI_PACKET_IN
 	mov [.status_token], OHCI_PACKET_OUT
 
@@ -564,7 +585,6 @@ ohci_setup:
 	jz .done
 
 	jmp .wait
-	
 
 .error:
 	mov esi, .error_msg
