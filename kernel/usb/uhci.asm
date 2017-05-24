@@ -18,6 +18,7 @@ UHCI_PORT2			= 0x12		; word
 UHCI_COMMAND_RUN		= 0x0001
 UHCI_COMMAND_HOST_RESET		= 0x0002
 UHCI_COMMAND_GLOBAL_RESET	= 0x0004
+UHCI_COMMAND_GLOBAL_RESUME	= 0x0010
 UHCI_COMMAND_MAX64		= 0x0080
 
 ; UHCI Status Register Bitfield
@@ -236,6 +237,22 @@ uhci_reset_controller:
 	out dx, ax
 	call iowait
 
+	; global resume
+	mov dx, [.io]
+	in ax, dx
+	or ax, UHCI_COMMAND_GLOBAL_RESUME
+	out dx, ax
+	call iowait
+
+	mov eax, 30
+	call pit_sleep
+
+	mov dx, [.io]
+	in ax, dx
+	and ax, not UHCI_COMMAND_GLOBAL_RESUME
+	out dx, ax
+	call iowait
+
 	; start of frame modify
 	mov dx, [.io]
 	add dx, UHCI_SOF_MODIFY
@@ -246,30 +263,41 @@ uhci_reset_controller:
 	; port reset
 	mov dx, [.io]
 	add dx, UHCI_PORT1
-	mov ax, UHCI_PORT_RESET
+	in ax, dx
+	or ax, UHCI_PORT_RESET or UHCI_PORT_ENABLE
+	and ax, not (1 shl 12)
 	out dx, ax
 	call iowait
 
 	mov dx, [.io]
 	add dx, UHCI_PORT2
-	mov ax, UHCI_PORT_RESET
+	in ax, dx
+	or ax, UHCI_PORT_RESET or UHCI_PORT_ENABLE
+	and ax, not (1 shl 12)
 	out dx, ax
 	call iowait
 
-	mov eax, 10
+	mov eax, 20
 	call pit_sleep
 
 	; end of reset --
 	; -- enable ports
 	mov dx, [.io]
 	add dx, UHCI_PORT1
-	mov ax, UHCI_PORT_ENABLE
+	in ax, dx
+	or ax, UHCI_PORT_ENABLE
+	and ax, not UHCI_PORT_RESET
+	and ax, not (1 shl 12)
 	out dx, ax
 	call iowait
 
 	mov dx, [.io]
 	add dx, UHCI_PORT2
 	mov ax, UHCI_PORT_ENABLE
+	in ax, dx
+	or ax, UHCI_PORT_ENABLE
+	and ax, not UHCI_PORT_RESET
+	and ax, not (1 shl 12)
 	out dx, ax
 	call iowait
 
