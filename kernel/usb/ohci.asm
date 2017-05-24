@@ -64,6 +64,7 @@ OHCI_COMM_DONE_HEAD			= 0x84		; dword
 OHCI_COMM_SIZE				= 256		; bytes...
 
 OHCI_DESCRIPTORS_SIZE			= 8		; 32 KB of descriptors is more than enough
+OHCI_MAX_WAITS				= 8192		; max # of times to poll the controller before timeout
 
 align 4
 ohci_pci_list				dd 0
@@ -370,6 +371,8 @@ align 4
 ; Out\	EAX = 0 on success
 
 ohci_setup:
+	mov [.waits], 0
+
 	mov [.controller], eax
 	mov [.packet], esi
 	mov [.data], edi
@@ -583,6 +586,10 @@ ohci_setup:
 	mov [edi+OHCI_CONTROL], eax
 
 .wait:
+	inc [.waits]
+	cmp [.waits], OHCI_MAX_WAITS
+	jg .error
+
 	; wait for the controller to finish, while checking for errors
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_STATUS]
@@ -623,18 +630,18 @@ ohci_setup:
 	; clear the status register
 	mov dword[edi+OHCI_STATUS], 0x0000007F
 
-	mov esi, .error_msg
-	call kprint
-	movzx eax, [.address]
-	call int_to_string
-	call kprint
-	mov esi, .error_msg2
-	call kprint
-	movzx eax, [.endpoint]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .error_msg
+	;call kprint
+	;movzx eax, [.address]
+	;call int_to_string
+	;call kprint
+	;mov esi, .error_msg2
+	;call kprint
+	;movzx eax, [.endpoint]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	mov eax, -1
 	ret
@@ -664,6 +671,9 @@ align 4
 .endpoint			db 0
 
 align 4
+.waits				dd 0
+
+align 4
 .descriptors			dd 0
 .descriptors_phys		dd 0
 
@@ -682,6 +692,7 @@ align 4
 ; Out\	EAX = 0 on success
 
 ohci_interrupt:
+	mov [.waits], 0
 	mov [.controller], eax
 	mov [.packet], esi
 	mov [.size], ecx
@@ -753,6 +764,7 @@ ohci_interrupt:
 
 .continue:
 	shl eax, 19
+	or eax, 1 shl 18		; buffer rounding
 	or eax, 1 shl 25		; data toggle is in TD not ED
 	or eax, 14 shl 28		; new TD to be executed
 	stosd
@@ -815,6 +827,10 @@ ohci_interrupt:
 	mov [edi+OHCI_CONTROL], eax
 
 .wait:
+	inc [.waits]
+	cmp [.waits], OHCI_MAX_WAITS
+	jg .error
+
 	; wait for the controller to finish, while checking for errors
 	mov edi, [.mmio]
 	mov eax, [edi+OHCI_STATUS]
@@ -866,18 +882,18 @@ ohci_interrupt:
 	; clear the status register
 	mov dword[edi+OHCI_STATUS], 0x0000007F
 
-	mov esi, .error_msg
-	call kprint
-	movzx eax, [.address]
-	call int_to_string
-	call kprint
-	mov esi, .error_msg2
-	call kprint
-	movzx eax, [.endpoint]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .error_msg
+	;call kprint
+	;movzx eax, [.address]
+	;call int_to_string
+	;call kprint
+	;mov esi, .error_msg2
+	;call kprint
+	;movzx eax, [.endpoint]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	mov eax, -1
 	ret
@@ -902,6 +918,9 @@ align 4
 .mmio				dd 0
 .address			db 0
 .endpoint			db 0
+
+align 4
+.waits				dd 0
 
 align 4
 .descriptors			dd 0

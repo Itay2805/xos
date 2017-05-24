@@ -309,8 +309,8 @@ usb_interrupt:
 	cmp byte[eax+USB_CONTROLLER_TYPE], USB_UHCI
 	je .uhci
 
-	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_OHCI
-	;je .ohci
+	cmp byte[eax+USB_CONTROLLER_TYPE], USB_OHCI
+	je .ohci
 
 	;cmp byte[eax+USB_CONTROLLER_TYPE], USB_EHCI
 	;je .ehci

@@ -6,12 +6,12 @@ wm_color			dd 0x808080
 ;wm_color			dd 0x004288
 window_title			dd 0xFFFFFF
 window_inactive_title		dd 0xC0C0C0
-window_border			dd 0x303030
-window_active_border		dd 0x303030
+window_border			dd 0x202020
+window_active_border		dd 0x202020
 window_active_outline		dd 0x00A2E8
 window_close_color		dd 0xD80000
 window_background		dd 0x383838
-window_opacity			db 1		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
+window_opacity			db 0		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
 window_full_border_height	db 0
 
 align 4

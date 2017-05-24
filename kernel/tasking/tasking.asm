@@ -236,6 +236,7 @@ yield:
 	mov edx, [eax+TASK_ESP]
 	push edx		; ESP
 	mov edx, [eax+TASK_EFLAGS]
+	or edx, 0x202
 	push edx		; EFLAGS
 	push 0x1B		; CS
 	mov edx, [eax+TASK_EIP]
