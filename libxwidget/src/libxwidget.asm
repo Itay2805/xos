@@ -425,6 +425,15 @@ xwidget_wait_event:
 	cmp [.char], 13		; enter?
 	je .textbox_enter
 
+	; before adding the character, ensure there is space
+	mov eax, [.textbox_handle]
+	mov esi, [eax+XWIDGET_TEXTBOX_TEXT]
+	call xwidget_strlen
+
+	mov esi, [.textbox_handle]
+	cmp eax, [esi+XWIDGET_TEXTBOX_LIMIT]
+	jge .start
+
 	mov eax, [.textbox_handle]
 	mov esi, [eax+XWIDGET_TEXTBOX_TEXT_POSITION]
 	inc dword[eax+XWIDGET_TEXTBOX_TEXT_POSITION]
@@ -497,7 +506,11 @@ xwidget_wait_event:
 	mov al, "	"
 	call xwidget_insert_char
 
-	mov eax, [.textbox_handle]
+	;mov eax, [.textbox_handle]
+
+	mov eax, [.current_window]
+	call xwidget_redraw
+	jmp .start
 
 align 4
 .current_window			dd 0

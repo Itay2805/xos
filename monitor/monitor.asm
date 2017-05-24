@@ -12,6 +12,7 @@ application_header:
 	.reserved1		dq 0
 
 include				"libxwidget/src/libxwidget.asm"
+include				"monitor/kill.asm"
 
 ; main:
 ; Program entry point
@@ -119,6 +120,12 @@ main:
 	mov ebx, 0x909090
 	call xwidget_create_label
 
+	mov eax, [window_handle]
+	mov cx, 8
+	mov dx, 415
+	mov esi, kill_button_text
+	call xwidget_create_button
+	mov [main_kill_button], eax
 
 	mov eax, [window_handle]
 	call xwidget_unlock
@@ -130,6 +137,12 @@ main:
 	call xwidget_wait_event
 	cmp eax, XWIDGET_CLOSE
 	je close
+
+	cmp eax, XWIDGET_BUTTON
+	jne .idle
+
+	cmp ebx, [main_kill_button]
+	je kill_task
 
 	jmp .idle
 
@@ -207,7 +220,7 @@ update_tasks:
 	add esi, eax
 	mov cx, 8
 	mov dx, [.y]
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	mov eax, [window_handle]
 	call xwidget_create_label
 
@@ -223,7 +236,7 @@ update_tasks:
 	add esi, eax
 	mov cx, 128
 	mov dx, [.y]
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	mov eax, [window_handle]
 	call xwidget_create_label
 
@@ -239,7 +252,7 @@ update_tasks:
 	add esi, eax
 	mov cx, 320
 	mov dx, [.y]
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	mov eax, [window_handle]
 	call xwidget_create_label
 
@@ -331,21 +344,21 @@ update_memory:
 	mov cx, 8+(19*8)
 	mov dx, 360
 	mov esi, total_memory_number
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	call xwidget_create_label
 
 	mov eax, [window_handle]
 	mov cx, 8+(18*8)
 	mov dx, 376
 	mov esi, used_memory_number
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	call xwidget_create_label
 
 	mov eax, [window_handle]
 	mov cx, 8+(18*8)
 	mov dx, 392
 	mov esi, free_memory_number
-	mov ebx, 0
+	mov ebx, 0xFFFFFF
 	call xwidget_create_label
 
 	ret
@@ -435,6 +448,7 @@ xwidget_yield_handler:
 	mov ebp, XOS_GET_TIME
 	int 0x60
 
+	; update the tasks and memory usages once per second
 	cmp bl, [.second]
 	je .return
 
@@ -486,6 +500,7 @@ memory_text			db "Binary memory (KB)",0
 total_memory_text		db "Total memory (MB): ",0
 used_memory_text		db "Used memory (MB): ",0
 free_memory_text		db "Free memory (MB): ",0
+kill_button_text		db "Kill a task",0
 
 total_memory_mb			dd 0
 used_memory_mb			dd 0
@@ -499,8 +514,7 @@ total_memory_label		dd 0
 used_memory_label		dd 0
 free_memory_label		dd 0
 
-
-
+main_kill_button		dd 0
 
 
 
