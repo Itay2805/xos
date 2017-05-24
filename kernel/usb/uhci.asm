@@ -694,10 +694,10 @@ uhci_interrupt:
 	mov [.endpoint], bh
 
 	; if there is no data to be transferred, ignore the request
-	mov ecx, [.size]
-	and ecx, 0x7FFFFFFF
-	cmp ecx, 0
-	je .finish2
+	;mov ecx, [.size]
+	;and ecx, 0x7FFFFFFF
+	;cmp ecx, 0
+	;je .finish2
 
 	mov eax, [.controller]
 	mov edx, [eax+USB_CONTROLLER_BASE]

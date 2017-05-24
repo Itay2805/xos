@@ -59,9 +59,25 @@ usb_keyboard_repeat			db 0
 ; Detects and initializes USB HID devices
 
 usb_hid_init:
+	cli
+
 	call usb_hid_init_mouse
 	call usb_hid_init_keyboard
 
+	cmp [usb_mouse_interval], 0
+	je .done
+
+	cmp [usb_keyboard_interval], 0
+	je .done
+
+	mov eax, [usb_mouse_interval]
+	cmp eax, [usb_keyboard_interval]
+	jne .done
+
+	add [usb_keyboard_interval], 2
+
+.done:
+	sti
 	ret
 
 ; usb_hid_init_mouse:
@@ -239,22 +255,22 @@ usb_hid_init_mouse:
 	jne .done
 
 	; disable reports unless the device has something to report
-	mov [usb_setup_packet.request_type], 0x21
-	mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
-	mov [usb_setup_packet.index], 0
-	mov [usb_setup_packet.length], 0
+	;mov [usb_setup_packet.request_type], 0x21
+	;mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	;mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	;mov [usb_setup_packet.index], 0
+	;mov [usb_setup_packet.length], 0
 
-	mov eax, [.controller]
-	mov bl, [.address]
-	mov bh, 0
-	mov esi, usb_setup_packet
-	mov edi, 0
-	mov ecx, 0
-	call usb_setup
+	;mov eax, [.controller]
+	;mov bl, [.address]
+	;mov bh, 0
+	;mov esi, usb_setup_packet
+	;mov edi, 0
+	;mov ecx, 0
+	;call usb_setup
 
-	cmp eax, 0
-	jne .done
+	;cmp eax, 0
+	;jne .done
 
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
@@ -309,6 +325,8 @@ align 4
 ; Updates the mouse status
 
 usb_hid_update_mouse:
+	cli
+
 	; Notice:
 	; The USB HID Specification tells us not to use the "get report"
 	; request for polling for mouse movement.
@@ -641,22 +659,22 @@ usb_hid_init_keyboard:
 	jne .done
 
 	; disable reports unless the device has something to report
-	mov [usb_setup_packet.request_type], 0x21
-	mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
-	mov [usb_setup_packet.index], 0
-	mov [usb_setup_packet.length], 0
+	;mov [usb_setup_packet.request_type], 0x21
+	;mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	;mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	;mov [usb_setup_packet.index], 0
+	;mov [usb_setup_packet.length], 0
 
-	mov eax, [.controller]
-	mov bl, [.address]
-	mov bh, 0
-	mov esi, usb_setup_packet
-	mov edi, 0
-	mov ecx, 0
-	call usb_setup
+	;mov eax, [.controller]
+	;mov bl, [.address]
+	;mov bh, 0
+	;mov esi, usb_setup_packet
+	;mov edi, 0
+	;mov ecx, 0
+	;call usb_setup
 
-	cmp eax, 0
-	jne .done
+	;cmp eax, 0
+	;jne .done
 
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
@@ -711,6 +729,8 @@ align 4
 ; Updates the USB keyboard status
 
 usb_hid_update_keyboard:
+	cli
+
 	inc [.runs]
 
 	; receive a report using interrupt

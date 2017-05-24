@@ -255,8 +255,6 @@ ohci_reset_controller:
 	mov dword[edi+OHCI_COMMAND], OHCI_COMMAND_RESET
 
 .reset_loop:
-	sti
-	hlt
 	mov edi, [.mmio]
 	test dword[edi+OHCI_COMMAND], OHCI_COMMAND_RESET
 	jnz .reset_loop
@@ -672,6 +670,244 @@ align 4
 .error_msg			db "usb-ohci: SETUP transfer error on device ",0
 .error_msg2			db " endpoint ",0
 
+; ohci_interrupt:
+; Sends/receives an interrupt packet
+; In\	EAX = Pointer to controller information
+; In\	BL = Device address
+; In\	BH = Endpoint
+; In\	ESI = Interrupt packet
+; In\	ECX = Bits 0-30: Size of interrupt packet, bit 31: direction
+;	Bit 31 = 0: host to device
+;	Bit 31 = 1: device to host
+; Out\	EAX = 0 on success
 
+ohci_interrupt:
+	mov [.controller], eax
+	mov [.packet], esi
+	mov [.size], ecx
+
+	and bl, 0x7F
+	mov [.address], bl
+	and bh, 0x0F
+	mov [.endpoint], bh
+
+	; if there is no data to be transferred, ignore the request
+	;mov ecx, [.size]
+	;and ecx, 0x7FFFFFFF
+	;cmp ecx, 0
+	;je .finish2
+
+	mov eax, [.controller]
+	mov edx, [eax+USB_CONTROLLER_BASE]
+	mov [.mmio], edx	; MMIO base
+
+	; physical addresses for the DMA to be happy...
+	mov eax, [.packet]
+	call virtual_to_physical
+	mov [.packet], eax
+
+	mov eax, [ohci_descriptors]
+	mov [.descriptors], eax
+	call virtual_to_physical
+	mov [.descriptors_phys], eax
+
+	; construct the endpoint descriptor
+	mov edi, [.descriptors]
+	movzx eax, [.address]		; device address
+	movzx ebx, [.endpoint]		; endpoint
+	shl ebx, 7
+	or eax, ebx
+	mov ebx, 8
+	shl ebx, 16
+	or eax, ebx
+	or eax, 1 shl 13		; low speed device
+	stosd
+
+	; TD tail pointer
+	mov eax, 0xF0000000
+	stosd
+
+	; TD head pointer
+	mov eax, [.descriptors_phys]
+	add eax, 16
+	stosd
+
+	; next endpoint descriptor pointer
+	mov eax, 0
+	stosd
+
+	; construct the first TD
+	mov edi, [.descriptors]
+	add edi, 16
+
+	; determine the data direction
+	test [.size], 0x80000000
+	jnz .in_packet
+
+.out_packet:
+	mov eax, OHCI_PACKET_OUT
+	jmp .continue
+
+.in_packet:
+	mov eax, OHCI_PACKET_IN
+
+.continue:
+	shl eax, 19
+	or eax, 1 shl 25		; data toggle is in TD not ED
+	or eax, 14 shl 28		; new TD to be executed
+	stosd
+
+	; pointer to packet
+	mov eax, [.packet]
+	stosd
+
+	; next TD -- invalid pointer
+	mov eax, 0xF0000000
+	stosd
+
+	; last byte of packet
+	mov eax, [.packet]
+	mov ebx, [.size]
+	and ebx, 0x7FFFFFFF
+	add eax, ebx
+	dec eax
+	stosd
+
+.send_packet:
+	; disable control list execution
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the communications area
+	mov edi, [ohci_comm]
+	xor eax, eax
+	mov ecx, 256/4
+	rep stosd
+
+	; send the address of the communications area
+	mov eax, [ohci_comm]
+	call virtual_to_physical
+	mov edi, [.mmio]
+	mov [edi+OHCI_COMM], eax
+
+	; send the address of the ED
+	mov edi, [.mmio]
+	mov eax, [.descriptors_phys]
+	mov [edi+OHCI_CONTROL_HEAD_ED], eax
+
+	xor eax, eax
+	mov [edi+OHCI_CONTROL_CURRENT_ED], eax
+
+	; control list filled
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_COMMAND]
+	or eax, OHCI_COMMAND_CONTROL_FILLED
+	mov [edi+OHCI_COMMAND], eax
+
+	; enable execution
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	or eax, OHCI_CONTROL_EXECUTE_CONTROL
+	and eax, not (3 shl 6)
+	or eax, 2 shl 6
+	mov [edi+OHCI_CONTROL], eax
+
+.wait:
+	; wait for the controller to finish, while checking for errors
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_STATUS]
+
+	test eax, OHCI_STATUS_UNRECOVERABLE_ERROR
+	jnz .error
+
+	test eax, OHCI_STATUS_FRAME_OVERFLOW
+	jnz .error
+
+	mov esi, [.descriptors]
+	mov eax, [esi+8]
+
+	; TD head pointer
+	and eax, 0xFFFFFFF0
+	cmp eax, [esi+4]	; head = tail?
+	je .done
+
+	; commented this because halted doesn't always mean finished...
+	mov eax, [esi+8]
+	test eax, 1		; test for halted
+	jnz .done
+
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_COMMAND]
+	test eax, OHCI_COMMAND_CONTROL_FILLED
+	jz .done
+
+	mov esi, [.descriptors]
+	mov eax, [esi+16]		; first TD
+	shr eax, 28
+	cmp eax, 0
+	je .done
+
+	cmp eax, 14
+	jge .wait
+
+	jmp .error
+
+	;jmp .wait
+
+.error:
+	; clear the "control execute" bit
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the status register
+	mov dword[edi+OHCI_STATUS], 0x0000007F
+
+	mov esi, .error_msg
+	call kprint
+	movzx eax, [.address]
+	call int_to_string
+	call kprint
+	mov esi, .error_msg2
+	call kprint
+	movzx eax, [.endpoint]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	mov eax, -1
+	ret
+
+.done:
+	; clear the "control execute" bit
+	mov edi, [.mmio]
+	mov eax, [edi+OHCI_CONTROL]
+	and eax, not OHCI_CONTROL_EXECUTE_CONTROL
+	mov [edi+OHCI_CONTROL], eax
+
+	; clear the status register
+	mov dword[edi+OHCI_STATUS], 0x0000007F
+
+	mov eax, 0
+	ret
+
+align 4
+.controller			dd 0
+.packet				dd 0
+.size				dd 0
+.mmio				dd 0
+.address			db 0
+.endpoint			db 0
+
+align 4
+.descriptors			dd 0
+.descriptors_phys		dd 0
+
+.error_msg			db "usb-ohci: interrupt transfer error on device ",0
+.error_msg2			db " endpoint ",0
 
 

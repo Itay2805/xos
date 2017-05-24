@@ -325,6 +325,10 @@ usb_interrupt:
 	call uhci_interrupt
 	ret
 
+.ohci:
+	call ohci_interrupt
+	ret
+
 ; usb_assign_addresses:
 ; Assigns addresses to USB devices
 ; In\	EAX = Controller number
