@@ -446,7 +446,13 @@ usb_assign_addresses:
 	cmp edi, -1
 	je .bad_string
 
-	mov esi, edi
+	; print manufacturer name and then product
+	push edi
+	call kprint
+	mov esi, .space
+	call kprint
+	pop esi
+
 	call kprint
 	mov esi, newline
 	call kprint
@@ -488,6 +494,7 @@ align 4
 .msg				db "usb: assigned device address ",0
 .msg2				db " on controller ",0
 .msg3				db ": ",0
+.space				db " ",0
 .bad_string_msg			db "UNABLE TO RECEIVE STRING DESCRIPTOR!",10,0
 
 ; usb_get_strings:
