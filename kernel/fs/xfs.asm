@@ -128,17 +128,17 @@ xfs_open:
 	xor al, al
 	stosb
 
-	mov esi, .msg
-	call kprint
-	mov esi, [.filename]
-	call kprint
-	mov esi, .msg2
-	call kprint
-	mov eax, [.handle]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .msg
+	;call kprint
+	;mov esi, [.filename]
+	;call kprint
+	;mov esi, .msg2
+	;call kprint
+	;mov eax, [.handle]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	; return the handle to the user
 	mov eax, [.handle]
@@ -164,24 +164,26 @@ xfs_close:
 	cmp eax, MAXIMUM_FILE_HANDLES
 	jge .quit
 
-	mov [.handle], eax
+	;mov [.handle], eax
 
-	mov esi, .msg
-	call kprint
-	mov eax, [.handle]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .msg
+	;call kprint
+	;mov eax, [.handle]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	; just clear the entire file handle ;)
-	mov eax, [.handle]
+	;mov eax, [.handle]
 	shl eax, 7		; mul 128
 	add eax, [file_handles]
 	mov edi, eax
 	mov ecx, FILE_HANDLE_SIZE
 	xor al, al
-	rep movsb
+	rep stosb
+
+	dec [open_files]
 
 .quit:
 	ret
