@@ -748,6 +748,260 @@ align 4
 .memory_error_msg	db "ahci: attempted to write to non-present page (0x",0
 .memory_error_msg2	db ")",10,0
 
+; ahci_write:
+; Writes to an AHCI SATA device
+; In\	EDX:EAX	= LBA sector
+; In\	ECX = Sector count
+; In\	BL = Port number
+; In\	ESI = Buffer to write sectors
+; Out\	AL = 0 on success, 1 on error
+; Out\	AH = Device task file register
+
+ahci_write:
+	mov [.port], bl
+	mov dword[.lba], eax
+	mov dword[.lba+4], edx
+	mov [.count], ecx
+	mov [.buffer], esi
+
+	; ahci uses DMA so we need physical address
+	mov eax, [.buffer]
+	and eax, 0xFFFFF000
+	call vmm_get_page
+	test dl, PAGE_PRESENT	; the DMA is not aware of paging, so we need to do this for safety...
+	jz .memory_error
+
+	mov ebx, [.buffer]
+	and ebx, 0xFFF
+	add eax, ebx
+	mov [.buffer_phys], eax
+
+	; clear all nescessary structures
+	mov edi, ahci_command_list
+	mov ecx, end_ahci_command_list - ahci_command_list
+	xor al, al
+	rep stosb
+
+	mov edi, ahci_command_table
+	mov ecx, end_ahci_command_table - ahci_command_table
+	xor al, al
+	rep stosb
+
+	mov edi, ahci_received_fis
+	mov ecx, end_ahci_received_fis - ahci_received_fis
+	xor al, al
+	rep stosb
+
+	; make the received FIS
+	mov [ahci_dma_setup_fis.type], AHCI_FIS_DMA_SETUP
+	mov [ahci_pio_setup_fis.type], AHCI_FIS_PIO_SETUP
+	mov [ahci_d2h_fis.type], AHCI_FIS_D2H
+	mov [ahci_dev_bits_fis.type], AHCI_FIS_DEV_BITS
+
+	; make the command list
+	mov [ahci_command_list.cfis_length], (end_ahci_command_fis-ahci_command_fis+3) / 4
+	or [ahci_command_list.cfis_length], 1 shl 6	; host to device (write dma transfer)
+	mov [ahci_command_list.prdt_length], 1
+	mov dword[ahci_command_list.command_table], ahci_command_table
+
+	; the command FIS
+	mov [ahci_command_fis.fis_type], AHCI_FIS_H2D
+	mov [ahci_command_fis.flags], 0x80
+	mov eax, [.count]
+	mov [ahci_command_fis.count], ax
+
+	; determine whether to use LBA28 or LBA48
+	cmp dword[.lba], 0xFFFFFFF-256
+	jge .lba48
+	cmp dword[.lba+4], 0
+	jne .lba48
+
+.lba28:
+	mov [ahci_command_fis.device], 0xE0
+	mov [ahci_command_fis.command], SATA_WRITE_LBA28
+	jmp .continue
+
+.lba48:
+	mov [ahci_command_fis.device], 0x40
+	mov [ahci_command_fis.command], SATA_WRITE_LBA48
+
+.continue:
+	; LBA...
+	mov eax, dword[.lba]
+	mov [ahci_command_fis.lba0], al
+	shr eax, 8
+	mov [ahci_command_fis.lba1], al
+	shr eax, 8
+	mov [ahci_command_fis.lba2], al
+	shr eax, 8
+	mov [ahci_command_fis.lba3], al
+
+	mov eax, dword[.lba+4]
+	mov [ahci_command_fis.lba4], al
+	shr eax, 8
+	mov [ahci_command_fis.lba5], al
+
+	; the PRDT
+	mov eax, [.buffer_phys]
+	mov dword[ahci_prdt.base], eax
+	mov eax, [.count]
+	shl eax, 9	; mul 512
+	dec eax
+	mov [ahci_prdt.count], eax
+
+	; send the command to the device
+	mov bl, [.port]
+	call ahci_stop
+
+	call ahci_disable_cache
+	movzx edi, [.port]
+	shl edi, 7
+	add edi, AHCI_ABAR_PORT_CONTROL
+	add edi, [ahci_abar]
+
+	mov eax, [edi+AHCI_PORT_IRQ_STATUS]
+	mov [edi+AHCI_PORT_IRQ_STATUS], eax
+
+	mov dword[edi+AHCI_PORT_COMMAND_LIST], ahci_command_list
+	mov dword[edi+AHCI_PORT_COMMAND_LIST+4], 0
+	mov dword[edi+AHCI_PORT_FIS], ahci_received_fis
+	mov dword[edi+AHCI_PORT_FIS+4], 0
+
+	mov bl, [.port]
+	call ahci_start
+
+.wait_bsy:
+	test dword[edi+AHCI_PORT_TASK_FILE], 0x80
+	jnz .wait_bsy
+
+.send_command:
+	or dword[edi+AHCI_PORT_COMMAND_ISSUE], 1
+
+.loop:
+	;sti
+	;hlt
+	test dword[edi+AHCI_PORT_TASK_FILE], 0x01	; error
+	jnz .error
+	test dword[edi+AHCI_PORT_TASK_FILE], 0x20	; drive fault
+	jnz .error
+
+	test dword[edi+AHCI_PORT_COMMAND_ISSUE], 1
+	jz .after_loop
+
+	jmp .loop
+
+.after_loop:
+	; turn off the command execution
+	mov bl, [.port]
+	call ahci_stop
+
+	;mov eax, [edi+AHCI_PORT_IRQ_STATUS]
+	;mov [edi+AHCI_PORT_IRQ_STATUS], eax
+
+	mov eax, [edi+AHCI_PORT_TASK_FILE]
+	test al, 0x01		; drive error?
+	jnz .error
+
+	test al, 0x20		; drive fault?
+	jnz .error
+
+	mov eax, [.count]
+	mov ebx, [ahci_prdt.count]
+	shl eax, 9
+	cmp [ahci_command_list.prdt_byte_count], eax
+	jne .error
+
+	movzx edi, [.port]
+	shl edi, 7
+	add edi, AHCI_ABAR_PORT_CONTROL
+	add edi, [ahci_abar]
+
+	mov ebx, [edi+AHCI_PORT_TASK_FILE]
+	mov [.task_file], bl
+
+	call ahci_enable_cache
+	mov al, 0
+	mov ah, [.task_file]
+	ret
+
+.error:
+	movzx edi, [.port]
+	shl edi, 7
+	add edi, AHCI_ABAR_PORT_CONTROL
+	add edi, [ahci_abar]
+
+	mov ebx, [edi+AHCI_PORT_TASK_FILE]
+	mov [.task_file], bl
+
+	mov bl, [.port]
+	call ahci_stop
+
+	call ahci_enable_cache
+
+	mov esi, .error_msg
+	call kprint
+	movzx eax, [.port]
+	call int_to_string
+	call kprint
+	mov esi, .error_msg2
+	call kprint
+	mov al, [.task_file]
+	call hex_byte_to_string
+	call kprint
+	mov esi, .error_msg3
+	call kprint
+	mov al, [ahci_command_fis.command]
+	call hex_byte_to_string
+	call kprint
+	mov esi, .error_msg4
+	call kprint
+	mov edx, dword[.lba+4]
+	mov eax, dword[.lba]
+	call hex_qword_to_string
+	call kprint
+	mov esi, .error_msg5
+	call kprint
+	mov eax, [.count]
+	call hex_word_to_string
+	call kprint
+	mov esi,newline
+	call kprint
+
+	mov al, 1
+	mov ah, [.task_file]
+
+	ret
+
+.memory_error:
+	call ahci_enable_cache
+
+	mov esi, .memory_error_msg
+	call kprint
+	mov eax, [.buffer]
+	call hex_dword_to_string
+	call kprint
+	mov esi, .memory_error_msg2
+	call kprint
+
+	mov ax, 0xFF01
+	ret
+
+align 8
+.lba			dq 0
+.port			db 0
+align 4
+.count			dd 0
+.buffer			dd 0
+.buffer_phys		dd 0
+.task_file		db 0
+.error_msg		db "ahci: hardware error on SATA device, AHCI port ",0
+.error_msg2		db "; task file 0x",0
+.error_msg3		db "; command 0x",0
+.error_msg4		db "; LBA 0x",0
+.error_msg5		db "; count 0x",0
+.memory_error_msg	db "ahci: attempted to read from non-present page (0x",0
+.memory_error_msg2	db ")",10,0
+
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

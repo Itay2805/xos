@@ -412,8 +412,8 @@ blkdev_write:
 	cmp byte[ebx], BLKDEV_ATA
 	je .ata
 
-	;cmp byte[ebx], BLKDEV_AHCI
-	;je .ahci
+	cmp byte[ebx], BLKDEV_AHCI
+	je .ahci
 
 	;cmp byte[ebx], BLKDEV_RAMDISK
 	;je .ramdisk
@@ -456,6 +456,44 @@ blkdev_write:
 	add [.buffer], 255*512
 	add dword[.lba], 255
 	jmp .ata_loop
+
+
+.ahci:
+	mov bl, [ebx+BLKDEV_ADDRESS]
+	mov [.ahci_port], bl
+
+.ahci_loop:
+	cmp [.count], 255
+	jg .ahci_big
+
+	cmp [.count], 0
+	je .done
+
+	mov edx, dword[.lba+4]
+	mov eax, dword[.lba]
+	mov bl, [.ahci_port]
+	mov ecx, [.count]
+	mov esi, [.buffer]
+	call ahci_write
+	cmp al, 1
+	je .fail
+
+	jmp .done
+
+.ahci_big:
+	mov edx, dword[.lba+4]
+	mov eax, dword[.lba]
+	mov bl, [.ahci_port]
+	mov ecx, 255
+	mov esi, [.buffer]
+	call ahci_write
+	cmp al, 1
+	je .fail
+
+	sub [.count], 255
+	add [.buffer], 255*512
+	add dword[.lba], 255
+	jmp .ahci_loop
 
 .done:
 	mov al, 0

@@ -7,7 +7,7 @@ org 0x1000
 
 	jmp 0x0000:kmain16
 
-	kernel_version			db "xOS32 v0.09 (25 May 2017)",0
+	kernel_version			db "xOS32 v0.10 (26 May 2017)",0
 	copyright_str			db "Copyright (C) 2016-2017 by Omar Mohammad.",0
 	newline				db 10,0
 
