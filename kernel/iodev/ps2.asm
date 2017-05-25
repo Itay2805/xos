@@ -61,31 +61,61 @@ ps2_present			db 0	; acpi determines this field using fadt
 
 ; wait_ps2_write:
 ; Waits to write to the PS/2 controller
+; In\	Nothing
+; Out\	EFLAGS.CF = 1 on timeout
 
 wait_ps2_write:
+	mov [.waits], 0
 	push eax
 
 .wait:
+	inc [.waits]
+	cmp [.waits], 4096
+	jge .error
+
 	in al, 0x64
 	test al, 2
 	jnz .wait
 
 	pop eax
+	clc
 	ret
+
+.error:
+	pop eax
+	stc
+	ret
+
+align 4
+.waits				dd 0
 
 ; wait_ps2_read:
 ; Waits to read the PS/2 controller
 
 wait_ps2_read:
+	mov [.waits], 0
 	push eax
 
 .wait:
+	inc [.waits]
+	cmp [.waits], 4096
+	jge .error
+
 	in al, 0x64
 	test al, 1
 	jz .wait
 
 	pop eax
+	clc
 	ret
+
+.error:
+	pop eax
+	stc
+	ret
+
+align 4
+.waits				dd 0
 
 ; ps2_send:
 ; Sends a PS/2 command
@@ -159,6 +189,7 @@ ps2_kbd_init:
 .reset_again:
 	mov al, PS2_KBD_RESET
 	call ps2_send
+	jc .no_kbd
 
 	cmp al, 0xFF
 	je .no_kbd
@@ -176,6 +207,8 @@ ps2_kbd_init:
 
 .wait_for_success:
 	call wait_ps2_read
+	jc .no_kbd
+
 	in al, 0x60
 	cmp al, 0xAA
 	je .continue
@@ -186,14 +219,19 @@ ps2_kbd_init:
 	; autorepeat rate
 	mov al, PS2_KBD_SET_AUTOREPEAT
 	call ps2_send
+	jc .no_kbd
+
 	mov al, 0x20
 	call ps2_send
+	jc .no_kbd
 
 	; scancode set 2
 	mov al, PS2_KBD_SET_SCANCODE
 	call ps2_send
+	jc .no_kbd
 	mov al, 2
 	call ps2_send
+	jc .no_kbd
 
 	; turn on the numlock LED
 	mov al, PS2_KBD_NUM_LOCK
@@ -205,6 +243,7 @@ ps2_kbd_init:
 	; enable keyboard
 	mov al, PS2_KBD_ENABLE
 	call ps2_send
+	jc .no_kbd
 
 	call iowait
 	call iowait
@@ -458,6 +497,7 @@ ps2_mouse_init:
 	; reset the mouse
 	mov al, PS2_MOUSE_RESET
 	call ps2_mouse_send
+	jc .no_mouse
 
 	mov ecx, 3
 
@@ -478,6 +518,7 @@ ps2_mouse_init:
 	je .reset_finish
 
 	call wait_ps2_read
+	jc .no_mouse
 	in al, 0x60
 	loop .loop
 	jmp .no_mouse
@@ -485,6 +526,7 @@ ps2_mouse_init:
 .reset_finish:
 	; read mouseID byte
 	call wait_ps2_read
+	jc .no_mouse
 	in al, 0x60
 	cmp al, 0
 	jne .no_mouse
@@ -493,10 +535,12 @@ ps2_mouse_init:
 	; demand the mouse ID again
 	mov al, PS2_MOUSE_GET_ID
 	call ps2_mouse_send
+	jc .no_mouse
 	cmp al, 0xFA
 	jne .no_mouse
 
 	call wait_ps2_read
+	jc .no_mouse
 	in al, 0x60
 	cmp al, 0
 	jne .no_mouse
@@ -504,12 +548,14 @@ ps2_mouse_init:
 	; disable mouse packets
 	mov al, PS2_MOUSE_DISABLE
 	call ps2_mouse_send
+	jc .no_mouse
 	cmp al, 0xFA
 	jne .no_mouse
 
 	; set default values
 	mov al, PS2_MOUSE_DEFAULTS
 	call ps2_mouse_send
+	jc .no_mouse
 	cmp al, 0xFA
 	jne .no_mouse
 
@@ -542,24 +588,29 @@ ps2_mouse_init:
 	; enable packets
 	mov al, PS2_MOUSE_ENABLE
 	call ps2_mouse_send
+	jc .no_mouse
 	cmp al, 0xFA
 	jne .no_mouse
 
 	; enable irq12
 	call wait_ps2_write
+	jc .no_mouse
 	mov al, 0x20
 	out 0x64, al
 
 	call wait_ps2_read
+	jc .no_mouse
 	in al, 0x60
 	or al, 2
 	push eax
 
 	call wait_ps2_write
+	jc .no_mouse
 	mov al, 0x60
 	out 0x64, al
 
 	call wait_ps2_write
+	jc .no_mouse
 	pop eax
 	out 0x60, al
 
