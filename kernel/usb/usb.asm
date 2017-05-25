@@ -265,6 +265,9 @@ align 4
 ; Out\	EAX = 0 on success
 
 usb_setup:
+	pushfd
+	cli
+
 	shl eax, 4		; mul 16
 	add eax, [usb_controllers]
 
@@ -285,10 +288,12 @@ usb_setup:
 
 .uhci:
 	call uhci_setup
+	popfd
 	ret
 
 .ohci:
 	call ohci_setup
+	popfd
 	ret
 
 ; usb_interrupt:
@@ -303,6 +308,9 @@ usb_setup:
 ; Out\	EAX = 0 on success
 
 usb_interrupt:
+	pushfd
+	cli
+
 	shl eax, 4		; mul 16
 	add eax, [usb_controllers]
 
@@ -323,10 +331,12 @@ usb_interrupt:
 
 .uhci:
 	call uhci_interrupt
+	popfd
 	ret
 
 .ohci:
 	call ohci_interrupt
+	popfd
 	ret
 
 ; usb_assign_addresses:

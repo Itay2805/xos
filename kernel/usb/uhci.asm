@@ -472,7 +472,7 @@ uhci_setup:
 	add edi, 256
 	mov eax, 1		; invalid pointer
 	stosd
-	mov eax, (3 shl 27) or (1 shl 23) or (1 shl 24) or (1 shl 26)
+	mov eax, (3 shl 27) or (1 shl 23) or (1 shl 24) or (1 shl 26)	; ioc
 	stosd
 
 	mov eax, 0x7FF
@@ -728,8 +728,8 @@ uhci_interrupt:
 	mov eax, 1			; link pointer invalid
 	stosd
 
-	; 3 error limit, active, low speed
-	mov eax, (3 shl 27) or (1 shl 23) or (1 shl 26)
+	; 1 error limit, active, low speed, IOC
+	mov eax, (1 shl 27) or (1 shl 23) or (1 shl 26) or (1 shl 24)
 	stosd
 
 	; data size and direction
