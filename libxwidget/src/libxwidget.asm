@@ -12,7 +12,7 @@ use32
 	xwidget_textbox_bg	dd 0xFFFFFF
 	xwidget_textbox_fg	dd 0x000000
 	xwidget_outline_focus	dd 0x00A2E8
-	xwidget_outline		dd 0x000000
+	xwidget_outline		dd 0x004860
 
 	XWIDGET_MAX_WINDOWS	= 8	; for now
 
