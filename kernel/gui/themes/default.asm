@@ -11,7 +11,7 @@ window_active_border		dd 0x202020
 window_active_outline		dd 0x00A2E8
 window_close_color		dd 0xD80000
 window_background		dd 0x383838
-window_opacity			db 0		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
+window_opacity			db 1		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
 window_full_border_height	db 1
 
 align 4
@@ -21,11 +21,11 @@ window_close_position		db 0		; 0 = left, 1 = right, for now this has no effect
 
 align 4
 window_close_x			dw 4
-window_close_y			dw 4
-window_close_width		dw 16
-window_close_height		dw 16
+window_close_y			dw 5
+window_close_width		dw 14
+window_close_height		dw 14
 
-window_title_x			dw 24
+window_title_x			dw 22
 window_title_y			dw 4
 window_canvas_x			dw 1
 window_canvas_y			dw 24

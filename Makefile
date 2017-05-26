@@ -26,7 +26,7 @@ all:
 	dd if=out/buttontest.exe conv=notrunc bs=512 seek=1042 of=disk.hdd
 	dd if=out/calc.exe conv=notrunc bs=512 seek=1062 of=disk.hdd
 	dd if=out/shell.exe conv=notrunc bs=512 seek=1000 of=disk.hdd
-	dd if=wp/wp2.bmp conv=notrunc bs=512 seek=8000 of=disk.hdd
+	dd if=wp/wp3.bmp conv=notrunc bs=512 seek=8000 of=disk.hdd
 	dd if=shell/shell.cfg conv=notrunc bs=512 seek=1020 of=disk.hdd
 	dd if=out/2048.exe conv=notrunc bs=512 seek=1200 of=disk.hdd
 	dd if=out/monitor.exe conv=notrunc bs=512 seek=1221 of=disk.hdd

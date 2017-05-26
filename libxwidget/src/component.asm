@@ -167,6 +167,20 @@ xwidget_redraw:
 	mov bx, 32
 	mov cx, [edi+5]
 	mov dx, [edi+7]
+	mov esi, [xwidget_button_border]
+	mov edi, [.handle]
+	call xwidget_fill_rect
+
+	mov edi, [.tmp]
+	mov esi, [edi+1]
+	call xwidget_strlen
+	shl eax, 3	; mul 8
+	add eax, 30
+	mov bx, 30
+	mov cx, [edi+5]
+	inc cx
+	mov dx, [edi+7]
+	inc dx
 	mov esi, [xwidget_button_bg]
 	mov edi, [.handle]
 	call xwidget_fill_rect
