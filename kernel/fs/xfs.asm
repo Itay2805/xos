@@ -4,30 +4,7 @@
 
 use32
 
-; struct file {
-; u32 flags;		// 00
-; u32 position;		// 04
-; u8 path[120];		// 08
-; }
-;
-;
-; sizeof(file) = 0x20;
-;
-
-FILE_FLAGS		= 0x00
-FILE_POSITION		= 0x04
-FILE_NAME		= 0x08
-FILE_HANDLE_SIZE	= 0x80
-
-; Max no. of files the kernel can handle
-MAXIMUM_FILE_HANDLES	= 512		; increase this in the future
-
-; File Flags
-FILE_PRESENT		= 0x00000001
-FILE_WRITE		= 0x00000002
-FILE_READ		= 0x00000004
-
-; XFS File Entry Structure
+; XFS Directory Entry Structure
 XFS_FILENAME		= 0x00
 XFS_LBA			= 0x20
 XFS_SIZE_SECTORS	= 0x24
@@ -39,18 +16,9 @@ XFS_MONTH		= 0x2F
 XFS_YEAR		= 0x30
 XFS_FLAGS		= 0x32
 
-; Constants For Seeking in File
-SEEK_SET		= 0x00
-SEEK_CUR		= 0x01
-SEEK_END		= 0x02
-
 XFS_SIGNATURE_MBR	= 0xF3		; in mbr partition table
 XFS_ROOT_SIZE		= 64
 XFS_ROOT_ENTRIES	= 512
-
-file_handles		dd 0
-open_files		dd 0
-xfs_new_filename:	times 12 db 0
 
 ; xfs_detect:
 ; Detects the xFS filesystem
@@ -59,17 +27,10 @@ xfs_detect:
 	mov esi, .starting_msg
 	call kprint
 
-	; first ensure the boot partition was even XFS
+	; simply ensure the boot partition was even XFS
 	cmp [boot_partition.type], XFS_SIGNATURE_MBR
 	jne .not_xfs
 
-	; allocate memory for file handles
-	mov ecx, MAXIMUM_FILE_HANDLES*FILE_HANDLE_SIZE
-	call kmalloc
-	mov [file_handles], eax
-	mov [open_files], 0
-
-	; we're done :3
 	ret
 
 .not_xfs:
@@ -79,7 +40,7 @@ xfs_detect:
 .tmp			dd 0
 .starting_msg		db "Detecting XFS partition on boot device...",10,0
 .not_xfs_msg		db "Unable to access file system on boot device.",0
-.test_filename		db "kernel32.sys",0
+;.test_filename		db "kernel32.sys",0
 
 ; xfs_open:
 ; Opens a file
@@ -98,7 +59,7 @@ xfs_open:
 	mov [.file_entry], eax
 
 	; find a free file handle
-	call xfs_find_handle
+	call vfs_find_handle
 	cmp eax, -1
 	je .error
 	mov [.handle], eax
@@ -128,17 +89,19 @@ xfs_open:
 	xor al, al
 	stosb
 
-	;mov esi, .msg
-	;call kprint
-	;mov esi, [.filename]
-	;call kprint
-	;mov esi, .msg2
-	;call kprint
-	;mov eax, [.handle]
-	;call int_to_string
-	;call kprint
-	;mov esi, newline
-	;call kprint
+	mov esi, .msg
+	call kprint
+	mov esi, [.filename]
+	call kprint
+	mov esi, .msg2
+	call kprint
+	mov eax, [.handle]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	inc [open_files]
 
 	; return the handle to the user
 	mov eax, [.handle]
@@ -154,42 +117,6 @@ xfs_open:
 .handle			dd 0
 .msg			db "xfs: opened file '",0
 .msg2			db "', file handle ",0
-
-; xfs_close:
-; Closes a file
-; In\	EAX = File handle
-; Out\	Nothing
-
-xfs_close:
-	cmp eax, MAXIMUM_FILE_HANDLES
-	jge .quit
-
-	;mov [.handle], eax
-
-	;mov esi, .msg
-	;call kprint
-	;mov eax, [.handle]
-	;call int_to_string
-	;call kprint
-	;mov esi, newline
-	;call kprint
-
-	; just clear the entire file handle ;)
-	;mov eax, [.handle]
-	shl eax, 7		; mul 128
-	add eax, [file_handles]
-	mov edi, eax
-	mov ecx, FILE_HANDLE_SIZE
-	xor al, al
-	rep stosb
-
-	dec [open_files]
-
-.quit:
-	ret
-
-.handle			dd 0
-.msg			db "xfs: close file handle ",0
 
 ; xfs_seek:
 ; Moves position in file stream
@@ -287,10 +214,10 @@ xfs_seek:
 	mov eax, -1
 	ret
 
+align 4
 .handle			dd 0
 .base			dd 0
 .dest			dd 0
-.filename:		times 13 db 0
 
 ; xfs_tell:
 ; Returns current position in file stream
@@ -318,211 +245,231 @@ xfs_tell:
 ; In\	EAX = File handle
 ; In\	ECX = # bytes to read
 ; In\	EDI = Buffer to read to
-; Out\	EAX = # of successful bytes read
+; Out\	EAX = # of bytes successfully read
 
 xfs_read:
-	cmp eax, MAXIMUM_FILE_HANDLES
-	jge .error
-
-	shl eax, 7
-	add eax, [file_handles]
 	mov [.handle], eax
-
 	mov [.count], ecx
 	mov [.buffer], edi
 
-	cmp [.count], 0
-	je .error
-	test [.count], 0x80000000	; negative
-	jnz .error
-
-	mov eax, [.handle]
-	test dword[eax], FILE_PRESENT or FILE_READ	; ensure the file is present and we have read access
-	jz .error
-
+	; get filename entry
 	mov esi, [.handle]
+	shl esi, 7
+	add esi, [file_handles]
 	add esi, FILE_NAME
 	call xfs_get_entry
+
 	cmp eax, -1
-	je .error
+	je .bad
 
-	mov ebx, [eax+XFS_LBA]
-	mov [.lba], ebx		; start of file data
+	mov edx, [eax+XFS_SIZE]		; size in bytes
+	mov [.size], edx
 
-	mov ebx, [eax+XFS_SIZE]
-	mov [.size], ebx	; file size
-
-	; check if we are reading beyond the file size
-	mov eax, [.handle]
-	mov ebx, [eax+FILE_POSITION]
-	add ebx, [.count]
-	cmp ebx, [.size]
-	jg .error
-
-	; okay, calculate the start of the LBA and read
-	mov eax, [.handle]
-	mov eax, [eax+FILE_POSITION]
+	mov eax, [eax+XFS_LBA]		; LBA sector
 	mov ebx, 512
-	xor edx, edx
-	div ebx			; use div 512 and not shr 9 because we need the remainder too
-	add [.lba], eax
-	mov [.start], edx	; number of bytes into the first lba
+	mul ebx			; use MUL and not SHL because we need the 64-bit result
+	mov dword[.file_start], eax
+	mov dword[.file_start+4], edx
 
-	; read into a temporary buffer first
-	mov ecx, [.count]
-	call kmalloc
-	mov [.tmp_buffer], eax
+	; ensure this read doesn't go out of the file
+	mov eax, [.handle]
+	shl eax, 7
+	add eax, [file_handles]
+	mov eax, [eax+FILE_POSITION]
+	add eax, [.count]
+	cmp eax, [.size]
+	jg .bad
 
-	mov edx, 0
-	mov eax, [.lba]
-	mov ecx, [.count]
-	add ecx, 511
-	shr ecx, 9
-	mov ebx, [boot_device]
-	mov edi, [.tmp_buffer]
-	call blkdev_read	; nice function -- independent of device types
+	; add the position to the file start in bytes
+	mov eax, [.handle]
+	shl eax, 7
+	add eax, [file_handles]
+	mov eax, [eax+FILE_POSITION]
+	add dword[.file_start], eax
+	adc dword[.file_start+4], 0
 
-	cmp al, 0
-	jne .error
+	; determine the block device
+	mov esi, [.handle]
+	shl esi, 7
+	add esi, [file_handles]
+	mov al, [esi+FILE_NAME]		; drive letter
+	and eax, 0xFF
+	sub eax, 'A'
+	shl eax, 3			; mul 8
+	add eax, [virtual_drives]
 
-	; now copy only the needed data
-	mov esi, [.tmp_buffer]
-	add esi, [.start]
+	mov eax, [eax+VIRTUAL_DRIVE_DRIVE]
+	mov [.blkdev], eax
+
+	; perform the read with a function that makes it easier ;)
+	mov edx, dword[.file_start+4]
+	mov eax, dword[.file_start]
+	mov ebx, [.blkdev]
+	mov ecx, [.size]
 	mov edi, [.buffer]
-	mov ecx, [.count]
-	rep movsb
+	call blkdev_read_bytes		; this function reads bytes, not sectors ;)
+	cmp eax, 0
+	jne .bad
 
-	; avoid memory leaks ;)
-	mov eax, [.tmp_buffer]
-	call kfree
-
-	; update the file position
-	mov edi, [.handle]
-	mov ebx, [.count]
-	add [edi+FILE_POSITION], ebx
+	; increment the position of the file
+	mov esi, [.handle]
+	shl esi, 7
+	add esi, [file_handles]
+	mov eax, [.count]
+	add [esi+FILE_POSITION], eax
 
 	mov eax, [.count]
 	ret
 
-.error:
+.bad:
 	mov eax, 0
 	ret
 
+align 4
 .handle			dd 0
 .count			dd 0
 .buffer			dd 0
-.lba			dd 0
 .size			dd 0
-.start			dd 0
-.tmp_buffer		dd 0
+.blkdev			dd 0
 
-; xfs_find_handle:
-; Searches for a free file handle
-; In\	Nothing
-; Out\	EAX = File handle, -1 on error
+align 8
+.file_start		dq 0	; bytes
 
-xfs_find_handle:
-	cmp [open_files], MAXIMUM_FILE_HANDLES
-	jge .bad
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-	mov [.current_handle], 0
+	;; End of public routines, start of driver internal routines
 
-.loop:
-	cmp [.current_handle], MAXIMUM_FILE_HANDLES-1
-	jge .bad
-
-	mov eax, [.current_handle]
-	shl eax, 7		; mul 128
-	add eax, [file_handles]
-	test dword[eax], FILE_PRESENT
-	jz .done
-
-	inc [.current_handle]
-	jmp .loop
-
-.done:
-	mov eax, [.current_handle]
-	ret
-
-.bad:
-	mov eax, -1
-	ret
-
-.current_handle			dd 0
-
-; xfs_read_root:
-; Reads the root directory into the disk buffer
-; In\	Nothing
-; OUt\	AL = 0 on success
-
-xfs_read_root:
-	xor edx, edx
-	mov eax, [boot_partition.lba]
-	inc eax
-	mov ecx, XFS_ROOT_SIZE
-	mov ebx, [boot_device]
-	mov edi, [disk_buffer]
-	call blkdev_read
-
-	ret
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; xfs_get_entry:
-; Returns a file entry
-; In\	ESI = Filename
-; Out\	EAX = Pointer to file entry, -1 on error
+; Returns a pointer to an XFS directory entry for a file
+; In\	ESI = Full path
+; Out\	EAX = Pointer to directory entry, -1 on error
 
 xfs_get_entry:
-	mov [.filename], esi
+	mov [.path], esi
 
-	mov esi, [.filename]
-	call strlen
-	inc eax
-	mov [.filename_size], eax
+	; determine the device which contains the xfs partition
+	mov al, [esi]		; drive letter
+	and eax, 0xFF
+	sub eax, 'A'
+	shl eax, 3		; mul 3
+	add eax, [virtual_drives]
+	mov edx, [eax+VIRTUAL_DRIVE_DRIVE]
+	mov [.blkdev], edx
+	mov dl, [eax+VIRTUAL_DRIVE_PARTITION]
+	mov [.partition], dl
 
-	call xfs_read_root
+	; read the MBR
+	mov edx, 0
+	mov eax, 0
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	mov edi, [disk_buffer]
+	call blkdev_read
 	cmp al, 0
 	jne .error
 
-	; now scan the root directory for the file name
-	mov [.current_entry], 0
+	; okay, read the LBA start from the partition entry
 	mov esi, [disk_buffer]
+	add esi, 446
+	movzx ecx, [.partition]
+	shl ecx, 4		; mul 16
+	add esi, ecx
+	mov eax, [esi+8]	; lba
+	mov [.lba_start], eax
 
-.loop:
+	; make a copy of the path
+	mov ecx, 120
+	call kmalloc
+	mov [.path_copy], eax
+
+	mov esi, [.path]
+	call strlen
+	mov edi, [.path_copy]
+	mov ecx, eax
+	rep movsb
+
+	; how many slashes are there in the path?
+	mov esi, [.path_copy]
+	mov dl, '/'
+	call count_byte_in_string
+	cmp eax, 1		; only one?
+	je .root		; yes, file is in root directory
+
+	; TO-DO: load file from a non-root directory here!
+	mov eax, -1
+	ret
+
+.root:
+	; load the root directory
+	mov edx, 0
+	mov eax, [.lba_start]
+	inc eax			; root is at lba 1
+	mov ecx, XFS_ROOT_SIZE
+	mov ebx, [.blkdev]
+	mov edi, [disk_buffer]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error_free
+
+	; scan for the filename
+	mov esi, [.path_copy]
+	add esi, 3
+	call strlen
+	cmp eax, 32
+	jge .error_free
+	inc eax
+	mov [.filename_size], eax
+
+	mov esi, [disk_buffer]
+	mov ecx, 0
+
+.scan_root_loop:
 	push esi
-
-	mov edi, [.filename]
+	mov edi, [.path_copy]
+	add edi, 3
+	push ecx
 	mov ecx, [.filename_size]
 	rep cmpsb
-	je .found
+	pop ecx
+	je .root_found
 
 	pop esi
 	add esi, 64
 
-	inc [.current_entry]
-	cmp [.current_entry], XFS_ROOT_ENTRIES
+	inc ecx
+	cmp ecx, XFS_ROOT_ENTRIES
 	jge .error
-	jmp .loop
 
-.found:
-	pop eax
+	jmp .scan_root_loop
+
+.root_found:
+	mov eax, [.path_copy]
+	call kfree
+
+	pop eax		; eax = directory entry
 	ret
 
-.error:
-	mov esi, .fail_msg
-	call kprint
-	mov esi, [.filename]
-	call kprint
-	mov esi, .fail_msg2
-	call kprint
+.error_free:
+	mov eax, [.path_copy]
+	call kfree
 
+.error:
 	mov eax, -1
 	ret
 
-.current_entry			dd 0
-.filename			dd 0
-.filename_size			dd 0
-.fail_msg			db "xfs: file '",0
-.fail_msg2			db "' not found.",10,0
+align 4
+.path			dd 0
+.path_copy		dd 0
+.blkdev			dd 0
+.lba_start		dd 0
+.filename_size		dd 0
+.partition		db 0
+
 
 
 

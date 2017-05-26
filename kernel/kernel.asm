@@ -254,6 +254,7 @@ kmain32:
 	call pci_init
 	call usb_init
 	call blkdev_init
+	call vfs_init
 	call xfs_detect
 	call ps2_init
 	call usb_hid_init
@@ -340,6 +341,7 @@ idle_process:
 	include "kernel/tasking/syscalls.asm"	; System calls table and handler
 
 	; Filesystem
+	include "kernel/fs/vfs.asm"		; Virtual FS
 	include "kernel/fs/xfs.asm"		; XFS
 	;include "kernel/fs/iso9660.asm"	; ISO9660 will be here someday
 

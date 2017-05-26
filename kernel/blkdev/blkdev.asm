@@ -46,6 +46,8 @@ blkdevs				dd 0	; number of block devices on the system
 boot_device			dd 0
 disk_buffer			dd 0
 
+boot_partition_num		db 0
+
 ; blkdev_init:
 ; Detects and initializes block devices
 
@@ -111,14 +113,27 @@ blkdev_init:
 
 .found_boot_device:
 	pop ecx
+	sub ecx, 4
+	test ecx, 0x80000000
+	jz .save_boot_device
 
+	not ecx
+	inc ecx
+
+.save_boot_device:
 	; save the boot device
 	mov eax, [.current_device]
 	mov [boot_device], eax
+	mov [boot_partition_num], cl
 
 	mov esi, .bootdev_msg
 	call kprint
 	mov eax, [boot_device]
+	call int_to_string
+	call kprint
+	mov esi, .bootdev_msg2
+	call kprint
+	movzx eax, [boot_partition_num]
 	call int_to_string
 	call kprint
 	mov esi, newline
@@ -161,6 +176,7 @@ blkdev_init:
 .tmp_buffer			dd 0
 .current_device			dd 0
 .bootdev_msg			db "Boot device is logical device ",0
+.bootdev_msg2			db ", partition #",0
 .no_bootdev_msg			db "Unable to determine the boot device.",10,0
 
 ; blkdev_register:
@@ -511,5 +527,81 @@ align 4
 .count			dd 0
 align 8
 .lba			dq 0
+
+; blkdev_read_bytes:
+; Reads from a block devices in the form of bytes not sectors
+; In\	EDX:EAX = Starting byte
+; In\	ECX = Byte count
+; In\	EBX = Block device number
+; In\	EDI = Buffer to read bytes
+; Out\	EAX = 0 on success
+
+blkdev_read_bytes:
+	mov dword[.bytes], eax
+	mov dword[.bytes+4], edx
+	mov [.count], ecx
+	mov [.device], ebx
+	mov [.buffer], edi
+
+	; allocate memory
+	mov ecx, [.count]
+	add ecx, 4096		; to be safe...
+	call malloc		; user memory is fine, we'll free it soon anyway
+	mov [.tmp_buffer], eax
+
+	; read sectors to this temporary memory
+	mov edx, dword[.bytes+4]
+	mov eax, dword[.bytes]
+	mov ebx, 512	; to sectors... using DIV not SHR because dividing 64-bit by 32-bit
+	div ebx
+	mov edx, 0
+
+	mov ebx, [.device]
+	mov edi, [.tmp_buffer]
+	mov ecx, [.count]
+	shr ecx, 9	; div 512
+	inc ecx
+	call blkdev_read
+
+	cmp al, 0
+	jne .error
+
+	; copy the requested bytes into the buffer requested
+	pushfd
+	cli
+
+	mov esi, dword[.bytes]
+	and esi, 0x1FF		; mod 512
+	add esi, [.tmp_buffer]
+	mov edi, [.buffer]
+	mov ecx, [.count]
+	call memcpy		; fast SSE memcpy
+
+	popfd
+
+	; finished!
+	mov eax, [.tmp_buffer]
+	call free
+
+	mov eax, 0
+	ret
+
+.error:
+	mov eax, [.tmp_buffer]
+	call free
+
+	mov eax, -1
+	ret
+
+align 8
+.bytes			dq 0
+.count			dd 0
+.device			dd 0
+.buffer			dd 0
+.tmp_buffer		dd 0
+
+
+
+
 
 

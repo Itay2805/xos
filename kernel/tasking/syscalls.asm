@@ -20,12 +20,12 @@ api_table:
 	dd wm_clear		; 0x0008
 	dd malloc		; 0x0009
 	dd free			; 0x000A
-	dd xfs_open		; 0x000B
-	dd xfs_close		; 0x000C
-	dd xfs_seek		; 0x000D
-	dd xfs_tell		; 0x000E
-	dd xfs_read		; 0x000F
-	dd 0;xfs_write		; 0x0010
+	dd vfs_open		; 0x000B
+	dd vfs_close		; 0x000C
+	dd vfs_seek		; 0x000D
+	dd vfs_tell		; 0x000E
+	dd vfs_read		; 0x000F
+	dd 0;vfs_write		; 0x0010
 	dd wm_render_char	; 0x0011
 	dd wm_kill		; 0x0012
 	dd get_screen_info	; 0x0013

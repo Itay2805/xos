@@ -310,5 +310,44 @@ find_byte_in_string:
 	clc
 	ret
 
+; count_byte_in_string:
+; Counts how many times a byte is repeated in a string
+; In\	ESI = String
+; In\	DL = Byte value
+; Out\	EAX = Number of times
+
+count_byte_in_string:
+	pusha
+
+	call strlen
+	add eax, esi
+	mov [.end_of_string], eax
+	mov [.times], 0
+
+.loop:
+	lodsb
+	cmp al, dl
+	je .increment
+
+	cmp esi, [.end_of_string]
+	jge .done
+
+	jmp .loop
+
+.increment:
+	inc [.times]
+	cmp esi, [.end_of_string]
+	jge .done
+
+	jmp .loop
+
+.done:
+	popa
+	mov eax, [.times]
+	ret
+
+align 4
+.end_of_string			dd 0
+.times				dd 0
 
 

@@ -9,9 +9,10 @@ org 0
 jmp short relocate
 nop
 
+align 8
 filesystem_block:
-	.fs_version			db 1
 	.fs_magic			db 0xF3
+	.usage_block_size		dd 7500
 	.volume_label			db "XOS",0
 
 relocate:

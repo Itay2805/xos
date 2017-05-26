@@ -16,6 +16,7 @@ use32
 ; u32 reserved1;	// 18
 ; u32 reserved2;	// 1C
 ; u8 filename[32];	// 20
+; u8 path[120];		// 40
 ; };
 ;
 ;
@@ -32,7 +33,7 @@ TASK_MEM_SIZE		= 0x14
 TASK_RESERVED1		= 0x18
 TASK_RESERVED2		= 0x1C
 TASK_FILENAME		= 0x20
-TASK_SIZE		= 0x40
+TASK_SIZE		= 0x100
 
 ; Task State Flags
 TASK_PRESENT		= 0x0001
@@ -118,7 +119,7 @@ get_free_task:
 	jge .no
 
 	mov eax, [.pid]
-	shl eax, 6	; mul 64
+	shl eax, 8	; mul 256
 	add eax, [task_structure]
 	test word[eax], TASK_PRESENT
 	jz .done
@@ -162,7 +163,7 @@ create_task_memory:
 
 	; create the task structure
 	mov edi, [.pid]
-	shl edi, 6		; mul 64
+	shl edi, 8		; mul 256
 	add edi, [task_structure]
 	mov word[edi], TASK_PRESENT
 
@@ -209,7 +210,7 @@ yield:
 	cmp eax, MAXIMUM_TASKS
 	jge .idle
 
-	shl eax, 6
+	shl eax, 8
 	add eax, [task_structure]
 	test word[eax], TASK_PRESENT
 	jz .next
@@ -248,7 +249,7 @@ yield:
 	;add esp, 4
 
 	movzx eax, [current_task]
-	shl eax, 6
+	shl eax, 8
 	add eax, [task_structure]
 
 	mov edx, [esp+4]		; eip
@@ -297,7 +298,7 @@ create_task:
 	; open the file
 	mov esi, [.filename]
 	mov edx, FILE_READ
-	call xfs_open
+	call vfs_open
 	cmp eax, -1
 	je .file_error
 
@@ -307,12 +308,12 @@ create_task:
 	mov eax, [.handle]
 	mov ebx, SEEK_END
 	mov ecx, 0
-	call xfs_seek
+	call vfs_seek
 	cmp eax, 0
 	jne .file_error
 
 	mov eax, [.handle]
-	call xfs_tell
+	call vfs_tell
 	cmp eax, -1
 	je .file_error
 
@@ -321,7 +322,7 @@ create_task:
 	mov eax, [.handle]
 	mov ebx, SEEK_SET
 	mov ecx, 0
-	call xfs_seek
+	call vfs_seek
 	cmp eax, 0
 	jne .file_error
 
@@ -345,13 +346,13 @@ create_task:
 	mov eax, [.handle]
 	mov edi, TASK_LOAD_ADDR
 	mov ecx, [.file_size]
-	call xfs_read
+	call vfs_read
 
 	cmp eax, [.file_size]
 	jne .file_error
 
 	mov eax, [.handle]
-	call xfs_close
+	call vfs_close
 
 	; verify the program is valid
 	mov esi, TASK_LOAD_ADDR
@@ -366,7 +367,7 @@ create_task:
 
 	; create the task structure
 	mov edi, [.pid]
-	shl edi, 6		; mul 64
+	shl edi, 8		; mul 256
 	add edi, [task_structure]
 	mov word[edi], TASK_PRESENT
 
@@ -407,7 +408,7 @@ create_task:
 	call vmm_unmap_memory
 
 	movzx ebp, [current_task]
-	shl ebp, 6
+	shl ebp, 8
 	add ebp, [task_structure]
 	mov eax, TASK_LOAD_ADDR
 	mov ebx, [ebp+TASK_PMEM_BASE]
@@ -476,7 +477,7 @@ kill_task:
 	mov [.task], eax
 
 	; verify the task even exists
-	shl eax, 6
+	shl eax, 8
 	add eax, [task_structure]
 	test word[eax+TASK_STATE], TASK_PRESENT
 	jz .finish
@@ -509,7 +510,7 @@ kill_task:
 
 .kill_task:
 	mov edi, [.task]
-	shl edi, 6
+	shl edi, 8
 	add edi, [task_structure]
 
 	push edi		; edi = task information
@@ -581,7 +582,7 @@ enum_tasks:
 	mov [.pid], ax
 
 	and eax, 0xFFFF
-	shl eax, 6		; mul 64
+	shl eax, 8		; mul 256
 	add eax, [task_structure]
 
 	; copy the state of the task
@@ -623,7 +624,7 @@ enum_tasks:
 	cmp eax, MAXIMUM_TASKS
 	jge .end_of_tasks
 
-	shl eax, 6		; mul 64
+	shl eax, 8		; mul 256
 	add eax, [task_structure]
 	test word[eax+TASK_STATE], TASK_PRESENT
 	jnz .found_next_task

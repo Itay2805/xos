@@ -7,6 +7,7 @@ all:
 	fasm kernel/boot/boot_hdd.asm out/boot_hdd.bin
 	fasm kernel/kernel.asm out/kernel32.sys
 	fasm tmp/rootnew.asm out/rootnew.bin
+	fasm tmp/fsusage.asm out/fsusage.bin
 	fasm hello/hello.asm out/hello.exe
 	fasm draw/draw.asm out/draw.exe
 	fasm buttontest/buttontest.asm out/buttontest.exe
@@ -18,6 +19,7 @@ all:
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
 	dd if=out/rootnew.bin conv=notrunc bs=512 seek=64 of=disk.hdd
+	dd if=out/fsusage.bin conv=notrunc bs=512 seek=52563 of=disk.hdd
 	dd if=out/kernel32.sys conv=notrunc bs=512 seek=200 of=disk.hdd
 	dd if=out/hello.exe conv=notrunc bs=512 seek=1021 of=disk.hdd
 	dd if=out/draw.exe conv=notrunc bs=512 seek=1022 of=disk.hdd

@@ -109,7 +109,7 @@ wm_init:
 	; open the wallpaper with read access
 	mov esi, default_wallpaper
 	mov edx, FILE_READ
-	call xfs_open
+	call vfs_open
 
 	cmp eax, -1
 	je .no_wallpaper
@@ -119,12 +119,12 @@ wm_init:
 	mov eax, [.file_handle]
 	mov ebx, SEEK_END
 	mov ecx, 0
-	call xfs_seek
+	call vfs_seek
 	cmp eax, 0
 	jne .no_wallpaper
 
 	mov eax, [.file_handle]
-	call xfs_tell
+	call vfs_tell
 	cmp eax, 0		; empty file?
 	je .no_wallpaper
 
@@ -134,7 +134,7 @@ wm_init:
 	mov eax, [.file_handle]
 	mov ebx, SEEK_SET
 	mov ecx, 0
-	call xfs_seek
+	call vfs_seek
 	cmp eax, 0
 	jne .no_wallpaper
 
@@ -152,12 +152,12 @@ wm_init:
 	mov eax, [.file_handle]
 	mov ecx, [.wp_size]
 	mov edi, [.tmp_memory]
-	call xfs_read
+	call vfs_read
 	cmp eax, [.wp_size]
 	jne .no_wallpaper
 
 	mov eax, [.file_handle]
-	call xfs_close
+	call vfs_close
 
 	mov edx, [.tmp_memory]
 	mov ebx, [wm_wallpaper]
