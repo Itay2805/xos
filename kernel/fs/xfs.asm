@@ -4,6 +4,26 @@
 
 use32
 
+;
+;
+; struct xfs_directory
+; {
+;	u8 filename[32];
+;	u32 lba;
+;	u32 size_sectors;
+;	u32 size_bytes;
+;	u8 hour;
+;	u8 minute;
+;	u8 day;
+;	u8 month;
+;	u16 year;
+;	u8 flags;
+;	u8 reserved[13];
+; }
+;
+; sizeof(xfs_directory) = 64;
+;
+
 ; XFS Directory Entry Structure
 XFS_FILENAME		= 0x00
 XFS_LBA			= 0x20
@@ -16,8 +36,15 @@ XFS_MONTH		= 0x2F
 XFS_YEAR		= 0x30
 XFS_FLAGS		= 0x32
 
+; XFS Directory Flags
+XFS_FLAGS_PRESENT	= 0x01
+XFS_FLAGS_DIRECTORY	= 0x02
+XFS_FLAGS_HIDDEN	= 0x04
+XFS_FLAGS_READONLY	= 0x08
+XFS_FLAGS_DELETED	= 0x10
+
 XFS_SIGNATURE_MBR	= 0xF3		; in mbr partition table
-XFS_ROOT_SIZE		= 64
+XFS_ROOT_SIZE		= 64		; size of root directory in sectors
 XFS_ROOT_ENTRIES	= 512
 
 ; xfs_detect:
@@ -57,6 +84,15 @@ xfs_open:
 	cmp eax, -1
 	je .error
 	mov [.file_entry], eax
+
+	; ensure it is a file, and is present
+	mov esi, [.file_entry]
+	mov al, [esi+XFS_FLAGS]
+	test al, XFS_FLAGS_PRESENT
+	jz .error
+
+	test al, XFS_FLAGS_DIRECTORY
+	jnz .error
 
 	; find a free file handle
 	call vfs_find_handle
@@ -111,6 +147,7 @@ xfs_open:
 	mov eax, -1
 	ret
 
+align 4
 .filename		dd 0
 .permission		dd 0
 .file_entry		dd 0
@@ -335,6 +372,8 @@ align 4
 align 8
 .file_start		dq 0	; bytes
 
+
+
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -342,6 +381,8 @@ align 8
 
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 
 ; xfs_get_entry:
 ; Returns a pointer to an XFS directory entry for a file
@@ -397,13 +438,146 @@ xfs_get_entry:
 	mov dl, '/'
 	call count_byte_in_string
 	cmp eax, 1		; only one?
-	je .root		; yes, file is in root directory
+	je .root_only		; yes, file is in root directory
+	mov [.total_slashes], eax
 
-	; TO-DO: load file from a non-root directory here!
-	mov eax, -1
+	; okay, scan the file somewhere other than the root directory
+	; first, we'll need to load the root directory and search for the first path
+	mov edx, 0
+	mov eax, [.lba_start]
+	inc eax
+	mov ecx, XFS_ROOT_SIZE
+	mov ebx, [.blkdev]
+	mov edi, [disk_buffer]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error_free
+
+	; okay, scan the root directory for the first file name
+	mov [.path_number], 1
+	mov esi, [.path_copy]
+	mov ecx, [.path_number]
+	call vfs_parse_filename
+	cmp esi, -1
+	je .error_free
+
+	mov edi, .buffer
+	call vfs_copy_filename
+
+	mov esi, .buffer
+	call strlen
+	cmp eax, 0
+	je .error_free
+
+	inc eax
+	mov [.filename_size], eax
+
+	mov esi, [disk_buffer]
+	mov ecx, 0
+
+.scan_root:
+	push esi
+	mov edi, .buffer
+	push ecx
+	mov ecx, [.filename_size]
+	rep cmpsb
+	pop ecx
+	je .root_found
+
+	pop esi
+	add esi, 64
+
+	inc ecx
+	cmp ecx, XFS_ROOT_ENTRIES
+	jge .error
+
+	jmp .scan_root
+
+.root_found:
+	pop esi		; root entry
+
+	; ensure it is a directory and not a file
+	mov al, [esi+XFS_FLAGS]
+	test al, XFS_FLAGS_PRESENT
+	jz .error_free
+
+	test al, XFS_FLAGS_DIRECTORY
+	jz .error_free
+
+	; now loop through all the directories searching for the file
+	inc [.path_number]
+
+.directory_loop:
+	; esi = directory entry
+	mov ecx, [esi+XFS_SIZE]		; size of directory in entries
+	mov [.directory_size], ecx
+
+	mov edx, 0
+	mov eax, [esi+XFS_LBA]
+	mov ecx, [esi+XFS_SIZE_SECTORS]
+	mov ebx, [.blkdev]
+	mov edi, [disk_buffer]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error_free
+
+	mov esi, [.path_copy]
+	mov ecx, [.path_number]
+	call vfs_parse_filename
+	cmp esi, -1
+	je .error_free
+
+	mov edi, .buffer
+	call vfs_copy_filename
+
+	mov esi, .buffer
+	call strlen
+	cmp eax, 0
+	je .error_free
+
+	inc eax
+	mov [.filename_size], eax
+
+	mov esi, [disk_buffer]
+	mov ecx, 0
+
+.scan_directory:
+	push esi
+	mov edi, .buffer
+	push ecx
+	mov ecx, [.filename_size]
+	rep cmpsb
+	pop ecx
+	je .directory_found
+
+	pop esi
+	add esi, 64
+
+	inc ecx
+	cmp ecx, [.directory_size]
+	jge .error_free
+
+	jmp .scan_directory
+
+.directory_found:
+	inc [.path_number]
+	mov ecx, [.total_slashes]
+	cmp [.path_number], ecx
+	jg .finished
+
+	pop esi
+	jmp .directory_loop
+
+.finished:
+	mov eax, [.path_copy]
+	call kfree
+
+	pop eax
 	ret
 
-.root:
+.root_only:
 	; load the root directory
 	mov edx, 0
 	mov eax, [.lba_start]
@@ -422,13 +596,15 @@ xfs_get_entry:
 	call strlen
 	cmp eax, 32
 	jge .error_free
+	cmp eax, 0
+	je .error_free
 	inc eax
 	mov [.filename_size], eax
 
 	mov esi, [disk_buffer]
 	mov ecx, 0
 
-.scan_root_loop:
+.scan_root_only_loop:
 	push esi
 	mov edi, [.path_copy]
 	add edi, 3
@@ -436,7 +612,7 @@ xfs_get_entry:
 	mov ecx, [.filename_size]
 	rep cmpsb
 	pop ecx
-	je .root_found
+	je .root_only_found
 
 	pop esi
 	add esi, 64
@@ -445,9 +621,9 @@ xfs_get_entry:
 	cmp ecx, XFS_ROOT_ENTRIES
 	jge .error
 
-	jmp .scan_root_loop
+	jmp .scan_root_only_loop
 
-.root_found:
+.root_only_found:
 	mov eax, [.path_copy]
 	call kfree
 
@@ -468,7 +644,12 @@ align 4
 .blkdev			dd 0
 .lba_start		dd 0
 .filename_size		dd 0
+.path_number		dd 0
+.total_slashes		dd 0
+.directory_size		dd 0
 .partition		db 0
+
+.buffer:		times 33 db 0
 
 
 

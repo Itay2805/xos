@@ -531,28 +531,113 @@ align 4
 ; Out\	Nothing
 
 vfs_close:
-	; Just for stress-testing, don't free unused handles
-	; Return without doing anything to stress-test the code
+	cmp eax, MAXIMUM_FILE_HANDLES
+	jge .done
+
+	shl eax, 7
+	add eax, [file_handles]
+	test dword[eax], FILE_PRESENT
+	jz .done
+
+	mov edi, eax
+	mov al, 0
+	mov ecx, FILE_HANDLE_SIZE
+	rep stosb
+
+	dec [open_files]
+
+.done:
+	mov eax, 0
 	ret
 
-	;cmp eax, MAXIMUM_FILE_HANDLES
-	;jge .done
+; vfs_parse_filename:
+; Parses a file name separated by '/'
+; In\	ESI = File name
+; In\	ECX = Number of slash
+; Out\	ESI = Pointer to specific file name, -1 on error
 
-	;shl eax, 7
-	;add eax, [file_handles]
-	;test dword[eax], FILE_PRESENT
-	;jz .done
+vfs_parse_filename:
+	cmp ecx, 0
+	je .finish
 
-	;mov edi, eax
-	;mov al, 0
-	;mov ecx, FILE_HANDLE_SIZE
-	;rep stosb
+	mov [.count], ecx
+	mov [.current_slash], 0
+	mov [.filename], esi
+	call strlen
+	add esi, eax
+	mov [.end_filename], esi
 
-	;dec [open_files]
+	mov esi, [.filename]
 
-;.done:
-	;mov eax, 0
-	;ret
+.loop:
+	lodsb
+	cmp al, '/'
+	je .found_slash
+
+	cmp esi, [.end_filename]
+	jge .error
+
+	jmp .loop
+
+.found_slash:
+	inc [.current_slash]
+	mov ecx, [.count]
+	cmp ecx, [.current_slash]
+	je .finish
+
+	jmp .loop
+
+.finish:
+	ret
+
+.error:
+	mov esi, -1
+	ret
+
+align 4
+.count				dd 0
+.current_slash			dd 0
+.filename			dd 0
+.end_filename			dd 0
+
+; vfs_copy_filename:
+; Copies a string terminated by '/' or NULL
+; In\	ESI = File name
+; In\	EDI = Destination buffer
+; Out\	EAX = Number of bytes copied
+
+vfs_copy_filename:
+	mov [.filename], esi
+	mov [.destination], edi
+
+	mov [.count], 0
+
+	mov esi, [.filename]
+	mov edi, [.destination]
+
+.loop:
+	lodsb
+	cmp al, 0
+	je .done
+	cmp al, '/'
+	je .done
+
+	stosb
+	inc [.count]
+	jmp .loop
+
+.done:
+	xor al, al
+	stosb
+
+	mov eax, [.count]
+	ret
+
+align 4
+.filename			dd 0
+.destination			dd 0
+.count				dd 0
+
 
 
 
