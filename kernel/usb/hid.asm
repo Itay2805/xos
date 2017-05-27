@@ -10,7 +10,7 @@ USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
 ; USB HID-Specific Setup Requests
 USB_HID_GET_REPORT			= 0x01	; request a report packet from a HID device
 USB_HID_SET_PROTOCOL			= 0x0B	; set report/boot protocol
-USB_HID_SET_IDLE			= 0x0A
+USB_HID_SET_IDLE			= 0x0A	; let the device respond when there is data only..
 
 ; USB Keyboard Modifier Bitfield
 USB_KEYBOARD_LEFT_CTRL			= 0x01
@@ -255,22 +255,22 @@ usb_hid_init_mouse:
 	jne .done
 
 	; disable reports unless the device has something to report
-	;mov [usb_setup_packet.request_type], 0x21
-	;mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	;mov [usb_setup_packet.value], 0		; duration indefinite, all reports
-	;mov [usb_setup_packet.index], 0
-	;mov [usb_setup_packet.length], 0
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
 
-	;mov eax, [.controller]
-	;mov bl, [.address]
-	;mov bh, 0
-	;mov esi, usb_setup_packet
-	;mov edi, 0
-	;mov ecx, 0
-	;call usb_setup
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0
+	mov ecx, 0
+	call usb_setup
 
-	;cmp eax, 0
-	;jne .done
+	cmp eax, 0
+	jne .done
 
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
@@ -659,22 +659,22 @@ usb_hid_init_keyboard:
 	jne .done
 
 	; disable reports unless the device has something to report
-	;mov [usb_setup_packet.request_type], 0x21
-	;mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	;mov [usb_setup_packet.value], 0		; duration indefinite, all reports
-	;mov [usb_setup_packet.index], 0
-	;mov [usb_setup_packet.length], 0
+	mov [usb_setup_packet.request_type], 0x21
+	mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	mov [usb_setup_packet.index], 0
+	mov [usb_setup_packet.length], 0
 
-	;mov eax, [.controller]
-	;mov bl, [.address]
-	;mov bh, 0
-	;mov esi, usb_setup_packet
-	;mov edi, 0
-	;mov ecx, 0
-	;call usb_setup
+	mov eax, [.controller]
+	mov bl, [.address]
+	mov bh, 0
+	mov esi, usb_setup_packet
+	mov edi, 0
+	mov ecx, 0
+	call usb_setup
 
-	;cmp eax, 0
-	;jne .done
+	cmp eax, 0
+	jne .done
 
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
