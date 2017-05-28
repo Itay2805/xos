@@ -13,7 +13,11 @@ application_header:
 	.reserved1		dq 0
 
 pci_ids:	; list of supported PCI vendor/device combinations, terminated by 0xFFFFFFFF
-	dd 0x813910EC
+	dd 0x813910EC		; Realtek 8139, QEMU
+	dd 0x81391065		; Texas 8139C, untested
+	dd 0x813910BD		; Surecom 8139C, untested
+	dd 0x13001186		; D-link 8139-compatible card, untested
+	dd 0xAB0614EA		; Planex 8139-compatible card, untested
 
 	; Need help: if anyone knows, help me enter more compatible combinations here!
 	dd 0xFFFFFFFF
