@@ -4,6 +4,8 @@
 
 use32
 
+transmit_descriptor			db 3
+
 ; transmit:
 ; Sends a packet
 ; In\	EBX = Packet content
@@ -19,30 +21,52 @@ transmit:
 	int 0x61
 	mov [.packet], eax
 
-	; transmit buffer
-	mov dx, [io]
+	inc [transmit_descriptor]
+	cmp [transmit_descriptor], 3
+	jg .zero_descriptor
+
+	jmp .start
+
+.zero_descriptor:
+	mov [transmit_descriptor], 0
+
+.start:
+	movzx dx, [transmit_descriptor]
+	shl dx, 2		; mul 4
 	add dx, RTL8139_TRANSMIT_START
+	add dx, [io]
+	mov [.transmit_start], dx
+
+	movzx dx, [transmit_descriptor]
+	shl dx, 2		; mul 4
+	add dx, RTL8139_TRANSMIT_STATUS
+	add dx, [io]
+	mov [.transmit_status], dx
+
+	; transmit buffer
+	mov dx, [.transmit_start]
+	mov eax, 0
+	out dx, eax
+	call iowait
+
 	mov eax, [.packet]
 	out dx, eax
 	call iowait
 
 	; transmit configuration
-	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS
-	in eax, dx
+	mov dx, [.transmit_status]
 	mov eax, [.size]
 	and eax, 0x1FFF		; size of packet, clear OWN bit which will clear all other bits
+	or eax, 2 shl 16	; threshold
 	out dx, eax
 	call iowait
 
-	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS
-
+	mov dx, [.transmit_status]
 	mov [.poll_times], 0
 
 .dma_loop:
 	inc [.poll_times]
-	cmp [.poll_times], 0xFFFFF
+	cmp [.poll_times], 0x3FFFF
 	jg .timeout
 
 	; poll the card -- wait for the DMA transfer to complete
@@ -55,12 +79,11 @@ transmit:
 .dma_complete:
 	mov [.poll_times], 0
 
-	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS
+	mov dx, [.transmit_status]
 
 .ok_loop:
 	inc [.poll_times]
-	cmp [.poll_times], 0xFFFFF
+	cmp [.poll_times], 0x3FFFF
 	jg .timeout
 
 	; poll the card -- wait for the entire network transfer to complete
@@ -72,29 +95,43 @@ transmit:
 
 .ok:
 	; clean up the transmitter registers
-	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS
-	mov eax, 0
-	out dx, eax
+	;mov dx, [io]
+	;add dx, RTL8139_TRANSMIT_STATUS
+	;mov eax, 0
+	;out dx, eax
+
+	;mov dx, [io]
+	;add dx, RTL8139_TRANSMIT_START
+	;out dx, eax
 
 	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_START
-	out dx, eax
+	add dx, RTL8139_INTERRUPT_STATUS
+	mov ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
+	out dx, ax
 
 	; and return success
 	mov eax, 0
 	ret
 
 .timeout:
+	mov esi, .timeout_msg
+	mov ebp, XOS_KPRINT
+	int 0x61
+
 	; clean up the transmitter registers
-	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS
-	mov eax, 0
-	out dx, eax
+	;mov dx, [io]
+	;add dx, RTL8139_TRANSMIT_STATUS
+	;mov eax, 0
+	;out dx, eax
+
+	;mov dx, [io]
+	;add dx, RTL8139_TRANSMIT_START
+	;out dx, eax
 
 	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_START
-	out dx, eax
+	add dx, RTL8139_INTERRUPT_STATUS
+	mov ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
+	out dx, ax
 
 	; and return failure
 	mov eax, 1
@@ -104,6 +141,12 @@ align 4
 .packet				dd 0
 .size				dd 0
 .poll_times			dd 0
+
+.transmit_start			dw 0
+.transmit_status		dw 0
+
+
+.timeout_msg			db "rtl8139: transmit packet timeout.",10,0
 
 
 

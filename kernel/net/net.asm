@@ -82,6 +82,8 @@ net_init:
 	mov esi, newline
 	call kprint
 
+	;call dhcp_init
+
 	ret
 
 .no_driver:
@@ -95,90 +97,7 @@ net_init:
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
 
-; net_send:
-; Sends a packet over the network
-; In\	EBX = Pointer to destination MAC
-; In\	ECX = Size of packet
-; In\	DX = Type of packet
-; In\	ESI = Data payload
-; Out\	EAX = 0 on success
-
-net_send:
-	mov [.destination], ebx
-	mov [.size], ecx
-	mov [.type], dx
-	mov [.payload], esi
-
-	; allocate space for a packet, with the ethernet header
-	mov ecx, [.size]
-	add ecx, ETHERNET_HEADER_SIZE+64
-	call kmalloc
-	mov [.packet], eax
-
-	; write the source and destination MAC addresses
-	mov edi, [.packet]
-	mov esi, [.destination]
-	mov ecx, 6
-	rep movsb
-
-	mov esi, my_mac
-	mov ecx, 6
-	rep movsb
-
-	mov ax, [.type]
-	xchg al, ah	; network is big-endian...
-	stosw
-
-	mov esi, [.payload]
-	mov ecx, [.size]
-	rep movsb
-
-	cmp [.size], 46		; do we need to make a padding
-	jl .padding		; yeah we do..
-
-	mov ecx, [.size]
-	add ecx, ETHERNET_HEADER_SIZE
-	mov [.final_size], ecx
-	jmp .send
-
-.padding:
-	mov ecx, 46
-	mov al, 0
-	rep stosb
-
-	mov ecx, [.size]
-	add ecx, 46
-	mov [.final_size], ecx
-
-.send:
-	mov eax, DRIVER_LOAD_ADDRESS
-	mov ebx, [net_mem]
-	mov ecx, [net_mem_size]
-	mov dl, PAGE_PRESENT or PAGE_WRITEABLE
-	call vmm_map_memory
-
-	mov eax, NET_SEND_PACKET
-	mov ebx, [.packet]
-	mov ecx, [.final_size]
-	mov ebp, [net_entry]
-	call ebp
-
-	push eax
-
-	mov eax, [.packet]
-	call kfree
-	pop eax
-
-	ret
-
-align 4
-.source				dd 0
-.destination			dd 0
-.size				dd 0
-.payload			dd 0
-.packet				dd 0
-.final_size			dd 0
-.type				dw 0
+test_packet:			times 64 db 0
 
 ; net_checksum:
 ; Performs the network checksum on data
@@ -250,6 +169,136 @@ net_checksum:
 align 4
 .last_byte			dd 0
 
+; net_send:
+; Sends a packet over the network
+; In\	EBX = Pointer to destination MAC
+; In\	ECX = Size of packet
+; In\	DX = Type of packet
+; In\	ESI = Data payload
+; Out\	EAX = 0 on success
+
+net_send:
+	mov [.destination], ebx
+	mov [.size], ecx
+	mov [.type], dx
+	mov [.payload], esi
+
+	; allocate space for a packet, with the ethernet header
+	mov ecx, [.size]
+	add ecx, ETHERNET_HEADER_SIZE+64
+	call kmalloc
+	mov [.packet], eax
+
+	; write the source and destination MAC addresses
+	mov edi, [.packet]
+	mov esi, [.destination]
+	mov ecx, 6
+	rep movsb
+
+	mov esi, my_mac
+	mov ecx, 6
+	rep movsb
+
+	mov ax, [.type]
+	xchg al, ah	; network is big-endian...
+	stosw
+
+	mov esi, [.payload]
+	mov ecx, [.size]
+	rep movsb
+
+	cmp [.size], 46		; do we need to make a padding
+	jl .padding		; yeah we do..
+
+	mov ecx, [.size]
+	add ecx, ETHERNET_HEADER_SIZE
+	mov [.final_size], ecx
+	jmp .send
+
+.padding:
+	mov ecx, 46
+	mov al, 0
+	rep stosb
+
+	mov ecx, [.size]
+	add ecx, 46
+	mov [.final_size], ecx
+
+.send:
+	mov eax, DRIVER_LOAD_ADDRESS
+	mov ebx, [net_mem]
+	mov ecx, [net_mem_size]
+	mov dl, PAGE_PRESENT or PAGE_WRITEABLE
+	call vmm_map_memory
+
+	mov [.tries], 0
+
+.send_again:
+	inc [.tries]
+	cmp [.tries], 16
+	jge .give_up
+
+	mov eax, NET_SEND_PACKET
+	mov ebx, [.packet]
+	mov ecx, [.final_size]
+	mov ebp, [net_entry]
+	call ebp
+
+	cmp eax, 0
+	je .success
+
+	mov eax, STD_DRIVER_RESET
+	mov ebp, [net_entry]
+	call ebp
+
+	jmp .send_again
+
+.success:
+	mov eax, [.packet]
+	call kfree
+
+	mov eax, 0
+	ret
+
+.give_up:
+	push eax
+
+	mov eax, [.packet]
+	call kfree
+
+	pop eax
+	ret
+
+align 4
+.source				dd 0
+.destination			dd 0
+.size				dd 0
+.payload			dd 0
+.packet				dd 0
+.final_size			dd 0
+.tries				dd 0
+.type				dw 0
+
+; net_receive:
+; Receives a packet from the network
+; In\	EDI = Buffer to receive packet
+; Out\	EAX = Byte count received
+
+net_receive:
+	push edi
+
+	mov eax, DRIVER_LOAD_ADDRESS
+	mov ebx, [net_mem]
+	mov ecx, [net_mem_size]
+	mov dl, PAGE_PRESENT or PAGE_WRITEABLE
+	call vmm_map_memory
+
+	pop ebx
+	mov eax, NET_RECEIVE_PACKET
+	mov ebp, [net_entry]
+	call ebp
+
+	ret
 
 
 

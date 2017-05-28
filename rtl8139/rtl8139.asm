@@ -39,6 +39,7 @@ include				"rtl8139/driver.asm"
 include				"rtl8139/string.asm"
 include				"rtl8139/registers.asm"
 include				"rtl8139/transmit.asm"
+include				"rtl8139/receive.asm"
 
 ; iowait:
 ; Waits for an I/O access
@@ -63,6 +64,9 @@ main:
 
 	cmp eax, NET_SEND_PACKET
 	je transmit
+
+	cmp eax, NET_RECEIVE_PACKET
+	je receive
 
 	cmp eax, NET_GET_MAC
 	je get_mac
@@ -186,7 +190,7 @@ driver_init:
 	; allocate the RX buffer
 	mov eax, 0
 	mov ecx, RX_BUFFER_SIZE/4096		; to pages
-	mov dl, 3
+	mov dl, 0x13				; present, read/write, uncacheable
 	mov ebp, XOS_VMM_ALLOC			; page-aligned memory
 	int 0x61
 	mov [rx_buffer], eax
@@ -263,30 +267,18 @@ driver_reset:
 	out dx, eax
 	call iowait
 
-	mov dx, [io]
-	add dx, RTL8139_RX_CURRENT_ADDRESS
-	mov ax, 0
-	out dx, ax
-	call iowait
+	;mov dx, [io]
+	;add dx, RTL8139_RX_CURRENT_ADDRESS
+	;mov ax, 0
+	;out dx, ax
+	;call iowait
 
 	; configure the transmitter
 	mov dx, [io]
-	add dx, RTL8139_TRANSMIT_STATUS		; descriptor 0
-	mov eax, 0
-	out dx, eax
-
-	add dx, 4		; descriptor 1
-	out dx, eax
-
-	add dx, 4		; descriptor 2
-	out dx, eax
-
-	add dx, 4		; descriptor 3
-	out dx, eax
-
-	mov dx, [io]
 	add dx, RTL8139_TRANSMIT_CONFIG
 	mov eax, RTL8139_TRANSMIT_CONFIG_CRC	; no CRC at end of packet
+	or eax, 6 shl 8				; max DMA burst
+	or eax, 2 shl 4				; max retries
 	out dx, eax
 	call iowait
 
