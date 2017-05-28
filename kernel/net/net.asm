@@ -12,6 +12,11 @@ NET_GET_MAC			= 0x0012
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
 
+router_mac:			times 6 db 0
+router_ip:			times 4 db 0
+
+broadcast_mac:			times 6 db 0xFF		; FF:FF:FF:FF:FF:FF
+
 ; net_init:
 ; Initializes the network stack
 
@@ -89,6 +94,88 @@ net_init:
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
+
+; send_packet:
+; Sends a packet over the network
+; In\	EAX = Pointer to source MAC
+; In\	EBX = Pointer to destination MAC
+; In\	ECX = Size of packet
+; In\	DX = Type of packet
+; In\	ESI = Data payload
+; Out\	EAX = 0 on success
+
+send_packet:
+	mov [.source], eax
+	mov [.destination], ebx
+	mov [.size], ecx
+	mov [.type], dx
+	mov [.payload], esi
+
+	; allocate space for a packet, with the ethernet header
+	mov ecx, [.size]
+	add ecx, 14+64
+	call kmalloc
+	mov [.packet], eax
+
+	; write the source and destination MAC addresses
+	mov edi, [.packet]
+	mov esi, [.destination]
+	mov ecx, 6
+	rep movsb
+
+	mov esi, [.source]
+	mov ecx, 6
+	rep movsb
+
+	mov ax, [.type]
+	xchg al, ah	; network is big-endian... and fuck THAT
+	stosw
+
+	mov esi, [.payload]
+	mov ecx, [.size]
+	rep movsb
+
+	cmp [.size], 46		; do we need to make a padding
+	jl .padding		; yeah we do..
+
+	mov ecx, [.size]
+	add ecx, 14		; ethernet header
+	mov [.final_size], ecx
+	jmp .send
+
+.padding:
+	mov ecx, 46
+	mov al, 0
+	rep stosb
+
+	mov ecx, [.size]
+	add ecx, 46
+	mov [.final_size], ecx
+
+.send:
+	mov eax, NET_SEND_PACKET
+	mov ebx, [.packet]
+	mov ecx, [.final_size]
+	mov ebp, [net_entry]
+	call ebp
+
+	push eax
+
+	mov eax, [.packet]
+	call kfree
+	pop eax
+
+	ret
+
+align 4
+.source				dd 0
+.destination			dd 0
+.size				dd 0
+.payload			dd 0
+.packet				dd 0
+.final_size			dd 0
+.type				dw 0
+
 
 
 

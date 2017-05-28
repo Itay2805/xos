@@ -38,6 +38,7 @@ RX_BUFFER_SIZE			= 65536+16	; 64 KB + 16 bytes
 include				"rtl8139/driver.asm"
 include				"rtl8139/string.asm"
 include				"rtl8139/registers.asm"
+include				"rtl8139/transmit.asm"
 
 ; iowait:
 ; Waits for an I/O access
@@ -59,6 +60,9 @@ main:
 
 	cmp eax, STD_DRIVER_RESET
 	je driver_reset
+
+	cmp eax, NET_SEND_PACKET
+	je transmit
 
 	cmp eax, NET_GET_MAC
 	je get_mac
@@ -296,9 +300,9 @@ driver_reset:
 	; enable receiver and transmitter
 	mov dx, [io]
 	add dx, RTL8139_COMMAND
-	in ax, dx
-	or ax, RTL8139_COMMAND_TRANSMIT or RTL8139_COMMAND_RECEIVE
-	out dx, ax
+	in al, dx
+	or al, RTL8139_COMMAND_TRANSMIT or RTL8139_COMMAND_RECEIVE
+	out dx, al
 	call iowait
 
 	mov eax, 0
