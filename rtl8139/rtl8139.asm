@@ -256,10 +256,17 @@ driver_reset:
 	mov dx, [io]
 	add dx, RTL8139_RECEIVE_CONFIG
 
+	; receive all packets
 	mov eax, RTL8139_RECEIVE_CONFIG_ACCEPT_ALL or RTL8139_RECEIVE_CONFIG_ACCEPT_PHYSICAL or RTL8139_RECEIVE_CONFIG_ACCEPT_MULTICAST or RTL8139_RECEIVE_CONFIG_ACCEPT_BROADCAST
 	or eax, 3 shl 11		; receive buffer is 64 KB
 	or eax, 7 shl 13		; no receive threshold
 	out dx, eax
+	call iowait
+
+	mov dx, [io]
+	add dx, RTL8139_RX_CURRENT_ADDRESS
+	mov ax, 0
+	out dx, ax
 	call iowait
 
 	; configure the transmitter

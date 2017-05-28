@@ -31,7 +31,7 @@ transmit:
 	add dx, RTL8139_TRANSMIT_STATUS
 	in eax, dx
 	mov eax, [.size]
-	and eax, 0x1FFF		; size of packet, clear OWN bit
+	and eax, 0x1FFF		; size of packet, clear OWN bit which will clear all other bits
 	out dx, eax
 	call iowait
 
@@ -45,7 +45,7 @@ transmit:
 	cmp [.poll_times], 0xFFFFF
 	jg .timeout
 
-	; poll the card -- wait for the DMA to complete
+	; poll the card -- wait for the DMA transfer to complete
 	in eax, dx
 	test eax, RTL8139_TRANSMIT_STATUS_OWN		; DMA completed?
 	jnz .dma_complete
@@ -63,9 +63,9 @@ transmit:
 	cmp [.poll_times], 0xFFFFF
 	jg .timeout
 
-	; poll the card -- wait for the entire packet to send
+	; poll the card -- wait for the entire network transfer to complete
 	in eax, dx
-	test eax, RTL8139_TRANSMIT_STATUS_OK		; packet send completed?
+	test eax, RTL8139_TRANSMIT_STATUS_OK	; packet send completed?
 	jnz .ok
 
 	jmp .ok_loop

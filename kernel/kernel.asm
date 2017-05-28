@@ -360,7 +360,7 @@ idle_process:
 	; Network Stack
 	include "kernel/net/net.asm"		; Network initialization code
 	;include "kernel/net/arp.asm"		; ARP Protocol
-	;include "kernel/net/ip.asm"		; IP Protocol
+	include "kernel/net/ip.asm"		; IP Protocol
 	;include "kernel/net/udp.asm"		; UDP Protocol
 	;include "kernel/net/dhcp.asm"		; DHCP Protocol
 	;include "kernel/net/dns.asm"		; DNS Protocol

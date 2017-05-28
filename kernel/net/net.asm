@@ -4,6 +4,8 @@
 
 use32
 
+ETHERNET_HEADER_SIZE		= 14			; size in bytes
+
 ; Network-Specific Driver Requests
 NET_SEND_PACKET			= 0x0010
 NET_RECEIVE_PACKET		= 0x0011
@@ -11,10 +13,8 @@ NET_GET_MAC			= 0x0012
 
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
-
 router_mac:			times 6 db 0
 router_ip:			times 4 db 0
-
 broadcast_mac:			times 6 db 0xFF		; FF:FF:FF:FF:FF:FF
 
 ; net_init:
@@ -95,17 +95,15 @@ net_init:
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
 
-; send_packet:
+; net_send:
 ; Sends a packet over the network
-; In\	EAX = Pointer to source MAC
 ; In\	EBX = Pointer to destination MAC
 ; In\	ECX = Size of packet
 ; In\	DX = Type of packet
 ; In\	ESI = Data payload
 ; Out\	EAX = 0 on success
 
-send_packet:
-	mov [.source], eax
+net_send:
 	mov [.destination], ebx
 	mov [.size], ecx
 	mov [.type], dx
@@ -113,7 +111,7 @@ send_packet:
 
 	; allocate space for a packet, with the ethernet header
 	mov ecx, [.size]
-	add ecx, 14+64
+	add ecx, ETHERNET_HEADER_SIZE+64
 	call kmalloc
 	mov [.packet], eax
 
@@ -123,12 +121,12 @@ send_packet:
 	mov ecx, 6
 	rep movsb
 
-	mov esi, [.source]
+	mov esi, my_mac
 	mov ecx, 6
 	rep movsb
 
 	mov ax, [.type]
-	xchg al, ah	; network is big-endian... and fuck THAT
+	xchg al, ah	; network is big-endian...
 	stosw
 
 	mov esi, [.payload]
@@ -139,7 +137,7 @@ send_packet:
 	jl .padding		; yeah we do..
 
 	mov ecx, [.size]
-	add ecx, 14		; ethernet header
+	add ecx, ETHERNET_HEADER_SIZE
 	mov [.final_size], ecx
 	jmp .send
 
@@ -153,6 +151,12 @@ send_packet:
 	mov [.final_size], ecx
 
 .send:
+	mov eax, DRIVER_LOAD_ADDRESS
+	mov ebx, [net_mem]
+	mov ecx, [net_mem_size]
+	mov dl, PAGE_PRESENT or PAGE_WRITEABLE
+	call vmm_map_memory
+
 	mov eax, NET_SEND_PACKET
 	mov ebx, [.packet]
 	mov ecx, [.final_size]
@@ -176,6 +180,75 @@ align 4
 .final_size			dd 0
 .type				dw 0
 
+; net_checksum:
+; Performs the network checksum on data
+; In\	ESI = Data
+; In\	ECX = Number of bytes
+; Out\	AX = Checksum
+
+net_checksum:
+	test ecx, 1		; odd?
+	jnz .odd
+
+	; even is easier...
+	mov ebx, 0
+	shr ecx, 1		; div 2
+
+.even_loop:
+	lodsw
+	xchg al, ah		; big endian!
+
+	and eax, 0xFFFF
+	add ebx, eax
+
+	loop .even_loop
+	jmp .added
+
+.odd:
+	push esi
+	add esi, ecx
+	dec esi
+	mov [.last_byte], esi
+
+	pop esi
+	mov ebx, 0
+	shr ecx, 1		; div 2
+
+.odd_loop:
+	lodsw
+	xchg al, ah
+
+	and eax, 0xFFFF
+	add ebx, eax
+
+	cmp esi, [.last_byte]
+	je .do_last_byte
+
+	loop .odd_loop
+
+.do_last_byte:
+	mov ah, [esi]
+	and eax, 0xFF00		; keep AH only
+	add ebx, eax
+
+.added:
+	; now check if the top WORD is zero...
+	mov ecx, ebx
+	shr ecx, 16
+	cmp cx, 0
+	je .done
+
+	and ebx, 0xFFFF
+	add ebx, ecx
+	jmp .added
+
+.done:
+	mov ax, bx
+	not ax
+	ret
+
+align 4
+.last_byte			dd 0
 
 
 
