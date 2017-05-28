@@ -259,6 +259,7 @@ kmain32:
 	call ps2_init
 	call usb_hid_init
 	call wm_init
+	call net_init
 	call use_back_buffer
 	call unlock_screen
 
@@ -339,6 +340,7 @@ idle_process:
 	; Multitasking Stuff
 	include "kernel/tasking/tasking.asm"	; Main scheduler code
 	include "kernel/tasking/syscalls.asm"	; System calls table and handler
+	include "kernel/tasking/driver.asm"	; Driver interface
 
 	; Filesystem
 	include "kernel/fs/vfs.asm"		; Virtual FS
@@ -354,7 +356,17 @@ idle_process:
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
 	;include "kernel/usb/usbmsd.asm"	; USB Mass Storage Device Driver
 	include "kernel/usb/hid.asm"		; USB Human Interface Device Driver
-	;include "kernel/usb/usbcam.asm"	; USB Camera Device Driver
+
+	; Network Stack
+	include "kernel/net/net.asm"		; Network initialization code
+	;include "kernel/net/arp.asm"		; ARP Protocol
+	;include "kernel/net/ip.asm"		; IP Protocol
+	;include "kernel/net/udp.asm"		; UDP Protocol
+	;include "kernel/net/dhcp.asm"		; DHCP Protocol
+	;include "kernel/net/dns.asm"		; DNS Protocol
+	;include "kernel/net/tcp.asm"		; TCP Protocol
+	;include "kernel/net/http.asm"		; HTTP Protocol
+	;include "kernel/net/https.asm"		; HTTPS Protocol
 
 	; Boot splash
 	boot_splash:

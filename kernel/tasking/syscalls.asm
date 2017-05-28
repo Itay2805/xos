@@ -51,6 +51,10 @@ syscall_init:
 	mov dl, 0xEE		; set interrupt privledge to userspace
 	call set_isr_privledge
 
+	mov al, 0x61		; int 0x61 driver API
+	mov ebp, driver_api
+	call install_isr
+
 	ret
 
 ; kernel_api:
