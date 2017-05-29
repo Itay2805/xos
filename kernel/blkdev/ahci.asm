@@ -75,8 +75,8 @@ ahci_abar			dd 0
 ; Detects a AHCI controller
 
 ahci_detect:
-	mov esi, .starting_msg
-	call kprint
+	;mov esi, .starting_msg
+	;call kprint
 
 	mov ax, 0x0106
 	call pci_get_device_class
@@ -157,8 +157,8 @@ ahci_detect:
 	ret
 
 .no:
-	mov esi, .no_msg
-	call kprint
+	;mov esi, .no_msg
+	;call kprint
 	ret
 
 .no_memory:
@@ -170,7 +170,7 @@ ahci_detect:
 .no_msg				db "ahci: AHCI controller not present.",10,0
 .found_msg			db "ahci: found AHCI controller on PCI slot ",0
 .colon				db ":",0
-.no_memory_msg			db "ahci: insufficient memory.",10,0
+.no_memory_msg			db "ahci: insufficient memory to map PCI MMIO memory.",10,0
 .port				db 0
 
 ; ahci_disable_cache:
