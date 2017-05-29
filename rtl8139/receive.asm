@@ -42,6 +42,12 @@ receive:
 	mov edi, [.buffer]
 	rep movsb
 
+	mov dx, [io]
+	add dx, RTL8139_RX_COUNT
+	in ax, dx
+	and eax, 0xFFFF
+	add [rx_buffer], eax
+
 	mov eax, [.size]
 	ret
 

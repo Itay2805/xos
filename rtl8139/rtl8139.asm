@@ -264,12 +264,13 @@ driver_reset:
 	mov eax, RTL8139_RECEIVE_CONFIG_ACCEPT_ALL or RTL8139_RECEIVE_CONFIG_ACCEPT_PHYSICAL or RTL8139_RECEIVE_CONFIG_ACCEPT_MULTICAST or RTL8139_RECEIVE_CONFIG_ACCEPT_BROADCAST
 	or eax, 3 shl 11		; receive buffer is 64 KB
 	or eax, 7 shl 13		; no receive threshold
+	or eax, 6 shl 8			; max DMA burst
 	out dx, eax
 	call iowait
 
 	;mov dx, [io]
 	;add dx, RTL8139_RX_CURRENT_ADDRESS
-	;mov ax, 0
+	;mov ax, 65520
 	;out dx, ax
 	;call iowait
 

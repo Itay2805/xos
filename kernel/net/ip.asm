@@ -81,6 +81,13 @@ ip_send:
 	xchg al, ah		; big-endian
 	stosw
 
+	; actual data payload
+	mov edi, [.packet]
+	add edi, IP_HEADER_SIZE
+	mov esi, [.payload]
+	mov ecx, [.size]
+	rep movsb
+
 	; okay, send the packet
 	mov ebx, [.dest_mac]
 	mov ecx, [.size]

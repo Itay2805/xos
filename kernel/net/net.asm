@@ -82,7 +82,7 @@ net_init:
 	mov esi, newline
 	call kprint
 
-	;call dhcp_init
+	call dhcp_init
 
 	ret
 
