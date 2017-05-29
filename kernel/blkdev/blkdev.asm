@@ -600,6 +600,94 @@ align 8
 .buffer			dd 0
 .tmp_buffer		dd 0
 
+; blkdev_write_bytes:
+; Writes to a block device in units of bytes not sectors
+; In\	EDX:EAX = Starting byte
+; In\	ECX = Byte count
+; In\	EBX = Block device number
+; In\	ESI = Buffer to write
+; Out\	EAX = 0 on success
+
+blkdev_write_bytes:
+	mov dword[.bytes], eax
+	mov dword[.bytes+4], edx
+	mov [.count], ecx
+	mov [.device], ebx
+	mov [.buffer], esi
+
+	; allocate memory
+	mov ecx, [.count]
+	add ecx, 4096		; to be safe...
+	call malloc		; user memory is fine, we'll free it soon anyway
+	mov [.tmp_buffer], eax
+
+	; read sectors to this temporary memory
+	mov edx, dword[.bytes+4]
+	mov eax, dword[.bytes]
+	mov ebx, 512	; to sectors... using DIV not SHR because dividing 64-bit by 32-bit
+	div ebx
+	mov edx, 0
+
+	mov ebx, [.device]
+	mov edi, [.tmp_buffer]
+	mov ecx, [.count]
+	shr ecx, 9	; div 512
+	inc ecx
+	call blkdev_read
+
+	cmp al, 0
+	jne .error
+
+	; copy the bytes to be written
+	pushfd
+	cli
+
+	mov esi, [.buffer]
+	mov edi, dword[.bytes]
+	and edi, 0x1FF
+	add edi, [.tmp_buffer]
+	mov ecx, [.count]
+	call memcpy		; fast SSE memcpy
+
+	popfd
+
+	; write
+	mov edx, dword[.bytes+4]
+	mov eax, dword[.bytes]
+	mov ebx, 512	; to sectors... using DIV not SHR because dividing 64-bit by 32-bit
+	div ebx
+	mov edx, 0
+
+	mov ebx, [.device]
+	mov esi, [.tmp_buffer]
+	mov ecx, [.count]
+	shr ecx, 9	; div 512
+	inc ecx
+	call blkdev_write
+
+	cmp al, 0
+	jne .error
+
+	; finished!
+	mov eax, [.tmp_buffer]
+	call free
+
+	mov eax, 0
+	ret
+
+.error:
+	mov eax, [.tmp_buffer]
+	call free
+
+	mov eax, -1
+	ret
+
+align 8
+.bytes			dq 0
+.count			dd 0
+.device			dd 0
+.buffer			dd 0
+.tmp_buffer		dd 0
 
 
 

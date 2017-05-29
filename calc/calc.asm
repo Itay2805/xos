@@ -637,6 +637,12 @@ do_divide:
 	cmp eax, XWIDGET_CLOSE
 	je main.close
 
+	cmp eax, XWIDGET_BUTTON
+	jne .hang
+
+	cmp ebx, [c_handle]
+	je main.clear
+
 	jmp .hang
 
 ; count_digits:

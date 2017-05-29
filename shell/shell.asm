@@ -49,9 +49,9 @@ main:
 	call xwidget_create_window
 	mov [window_handle], eax
 
-	;mov eax, [window_handle]
-	;mov ebx, 0x222222
-	;call xwidget_window_set_color
+	mov eax, [window_handle]
+	mov ebx, 0xFFFFFFFF		; transparent
+	call xwidget_window_set_color
 
 	mov eax, [window_handle]
 	mov cx, 0

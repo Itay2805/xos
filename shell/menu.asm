@@ -134,6 +134,10 @@ open_menu:
 	call xwidget_create_window
 	mov [menu_window_handle], eax
 
+	mov eax, [menu_window_handle]
+	mov ebx, 0xFFFFFFFF
+	call xwidget_window_set_color
+
 	; lock
 	mov eax, [menu_window_handle]
 	call xwidget_lock

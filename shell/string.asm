@@ -170,18 +170,36 @@ update_time:
 	mov [.hour_old], al
 	mov al, [.minute]
 	mov [.minute_old], al
+	mov al, [.second]
+	mov [.second_old], al
 
 	mov ebp, XOS_GET_TIME
 	int 0x60
 	mov [.hour], ah
 	mov [.minute], al
-	;mov [.second], bl
+	mov [.second], bl
 
+	cmp bl, [.second_old]
+	je .no_change
+
+	test [.second], 1
+	jz .second_even
+
+.second_odd:
+	mov byte[time_text+2], " "
+	mov [.changed], 1
+	jmp .start
+
+.second_even:
+	mov byte[time_text+2], ":"
+	mov [.changed], 1
+
+.start:
 	cmp ah, [.hour_old]
 	jne .do_minute
 
 	cmp al, [.minute_old]
-	je .quit
+	je .done
 
 .do_minute:
 	cmp [.minute], 9
@@ -258,9 +276,18 @@ update_time:
 	mov word[time_text+6], "PM"
 	jmp .done
 
+.no_change:
+	mov [.changed], 0
+	ret
+
 .done:
+	cmp [.changed], 0
+	je .quit
+
 	mov eax, [window_handle]
 	call xwidget_redraw
+
+	mov [.changed], 0
 
 .quit:
 	ret
@@ -269,6 +296,8 @@ update_time:
 .minute			db 0
 .hour_old		db 0
 .minute_old		db 0
-
+.second			db 0
+.second_old		db 0
+.changed		db 0
 
 
