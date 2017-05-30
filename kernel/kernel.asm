@@ -178,6 +178,12 @@ kmain32:
 	or eax, 0x100
 	mov cr4, eax
 
+	; configure MXCSR
+	stmxcsr [.mxcsr]
+	and [.mxcsr], not (0x2000 or 0x6000)
+	or [.mxcsr], 0x4000		; enable rounding to positive infinity
+	ldmxcsr [.mxcsr]	
+
 	; names of functions say enough of what they do ;)
 	call com1_detect
 	call install_exceptions
@@ -267,6 +273,9 @@ kmain32:
 	call create_task
 
 	jmp idle_process
+
+align 4
+.mxcsr			dd 0
 
 main_task		db "shell.exe",0
 boot_splash_buffer	dd 0
