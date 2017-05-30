@@ -393,7 +393,7 @@ wm_create_window:
 	je .no
 	mov [.handle], eax
 
-	; allocate a framebuffer
+	; allocate a window canvas
 	movzx eax, [.width]
 	movzx ebx, [.height]
 	mul ebx
@@ -412,7 +412,19 @@ wm_create_window:
 	mul ebx
 	mov ecx, eax
 	mov edi, [.framebuffer]
+
+	; if the window is transparent, clear it with the transparent color
+	test [.flags], WM_TRANSPARENT
+	jnz .transparent
+
+.normal:
 	mov eax, [window_background]
+	jmp .clear
+
+.transparent:
+	mov eax, WINDOW_TRANSPARENT_COLOR
+
+.clear:
 	rep stosd
 
 	; create the window handle
