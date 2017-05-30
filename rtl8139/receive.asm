@@ -29,7 +29,7 @@ receive:
 	and ax, RTL8139_INTERRUPT_RECEIVE_OK
 	out dx, ax
 
-	mov esi, [rx_buffer]
+	mov esi, [rx_buffer_current]
 	lodsw
 
 	test ax, 1		; good packet?
@@ -45,14 +45,25 @@ receive:
 	mov dx, [io]
 	add dx, RTL8139_RX_COUNT
 	in ax, dx
+
+	cmp ax, 0xF000			; 60 KB
+	jge .reset			; yep - reset the descriptor before we overflow
+
 	and eax, 0xFFFF
-	add [rx_buffer], eax
+	mov ebx, [rx_buffer]
+	add ebx, eax
+	mov [rx_buffer_current], ebx
 
 	mov eax, [.size]
 	ret
 
 .empty:
 	mov eax, 0
+	ret
+
+.reset:
+	call driver_reset		; reset everything
+	mov eax, [.size]
 	ret
 
 align 4

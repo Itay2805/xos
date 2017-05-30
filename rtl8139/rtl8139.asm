@@ -257,6 +257,9 @@ driver_reset:
 	out dx, eax
 	call iowait
 
+	mov eax, [rx_buffer]
+	mov [rx_buffer_current], eax
+
 	mov dx, [io]
 	add dx, RTL8139_RECEIVE_CONFIG
 
@@ -374,7 +377,7 @@ get_mac:
 
 	align 4
 	rx_buffer			dd 0
-
+	rx_buffer_current		dd 0
 
 
 
