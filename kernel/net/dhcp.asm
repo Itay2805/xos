@@ -220,10 +220,11 @@ dhcp_init:
 	cmp byte[esi+9], UDP_PROTOCOL_TYPE	; UDP?
 	jne .receive_start
 
-	;cmp byte[esi+9], TCP_PROTOCOL_TYPE	; big DHCP packets may be sent over DHCP...
+	; big DHCP packets may also be sent over TCP instead of UDP...
+	;cmp byte[esi+9], TCP_PROTOCOL_TYPE
 	;jne .receive_start
 
-	add esi, IP_HEADER_SIZE			; to UDP header
+	add esi, IP_HEADER_SIZE			; to TCP/UDP header
 	mov ax, [esi]		; the reply source must be our destination
 	xchg al, ah
 	cmp ax, DHCP_DESTINATION_PORT

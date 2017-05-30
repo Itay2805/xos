@@ -278,6 +278,8 @@ driver_reset:
 	;call iowait
 
 	; configure the transmitter
+	mov [transmit_descriptor], 3
+
 	mov dx, [io]
 	add dx, RTL8139_TRANSMIT_CONFIG
 	mov eax, RTL8139_TRANSMIT_CONFIG_CRC	; no CRC at end of packet
