@@ -17,6 +17,7 @@ all:
 	fasm 2048/2048.asm out/2048.exe
 	fasm monitor/monitor.asm out/monitor.exe
 	fasm rtl8139/rtl8139.asm out/rtl8139.sys
+	fasm fasm/source/xos/fasm.asm out/fasm.exe
 
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
@@ -34,6 +35,8 @@ all:
 	dd if=out/2048.exe conv=notrunc bs=512 seek=1200 of=disk.hdd
 	dd if=out/monitor.exe conv=notrunc bs=512 seek=1221 of=disk.hdd
 	dd if=out/rtl8139.sys conv=notrunc bs=512 seek=1301 of=disk.hdd
+	dd if=out/fasm.exe conv=notrunc bs=512 seek=1400 of=disk.hdd
+	dd if=test.asm conv=notrunc bs=512 seek=1500 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap

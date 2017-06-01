@@ -167,4 +167,31 @@ drivers:
 	.reserved:	times 13 db 0
 
 
+fasm:
+	.name		db "fasm.exe",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 1400
+	.size_sects	dd 400
+	.size_bytes	dd 400*512
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
+
+testasm:
+	.name		db "test.asm",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 1500
+	.size_sects	dd 1
+	.size_bytes	dd 8
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
 

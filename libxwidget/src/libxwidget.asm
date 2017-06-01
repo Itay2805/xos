@@ -381,7 +381,14 @@ xwidget_wait_event:
 	cmp dx, bx
 	jg .clicked_continue
 
+	push esi
+
+	; take away focus from all windows
+	mov eax, [.current_window]
+	call xwidget_remove_all_focus
+
 	; give the textbox focus
+	pop esi
 	or byte[esi+XWIDGET_TEXTBOX_FLAGS], XWIDGET_TEXTBOX_FOCUSED
 
 	mov eax, [.current_window]

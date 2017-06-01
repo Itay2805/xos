@@ -79,6 +79,9 @@ xfs_open:
 	mov [.filename], esi
 	mov [.permission], edx
 
+	test edx, FILE_CREATE		; creating and not just opening?
+	jnz xfs_create			; yep -- create the file
+
 	; ensure the file even exists
 	call xfs_get_entry
 	cmp eax, -1
@@ -153,6 +156,138 @@ align 4
 .file_entry		dd 0
 .handle			dd 0
 .msg			db "xfs: opened file '",0
+.msg2			db "', file handle ",0
+
+; xfs_create:
+; Creates a blank file, delete it if it already exists
+; In\	ESI = File name, ASCIIZ
+; Out\	EAX = File handle
+
+xfs_create:
+	mov [.filename], esi
+
+	movzx eax, byte[esi]		; drive letter
+	sub al, 'A'
+	shl eax, 3
+	add eax, [virtual_drives]
+
+	test byte[eax+VIRTUAL_DRIVE_FLAGS], VIRTUAL_DRIVE_PRESENT
+	jz .error
+
+	mov ebx, [eax+VIRTUAL_DRIVE_DRIVE]
+	mov [.blkdev], ebx
+	mov bl, [eax+VIRTUAL_DRIVE_PARTITION]
+	mov [.partition], bl
+
+	; read the boot sector
+	mov edx, 0
+	mov eax, 0
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	mov edi, [disk_buffer]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error
+
+	; determine partition
+	mov esi, [disk_buffer]
+	add esi, 446
+	movzx ecx, [.partition]
+	shl ecx, 4
+	add esi, ecx
+	mov eax, [esi+8]
+	mov [.lba_start], eax
+	add eax, [esi+12]
+	mov [.lba_end], eax
+
+	; okay, does the file exist?
+	mov esi, [.filename]
+	call xfs_get_entry
+	cmp eax, -1
+	je .create_entry		; doesn't -- make the entry ourselves
+
+	mov [.directory_entry], eax
+
+	; exists, ensure file and not directory
+	test byte[eax+XFS_FLAGS], XFS_FLAGS_DIRECTORY
+	jnz .error
+
+	mov dword[eax+XFS_SIZE_SECTORS], 1
+	mov dword[eax+XFS_SIZE], 0
+	mov byte[eax+XFS_FLAGS], XFS_FLAGS_PRESENT
+
+	; TO-DO: put time/date support here
+	jmp .start
+
+.create_entry:
+	cmp ecx, 0		; disk error
+	je .error
+
+	mov [.directory_lba], ecx
+
+	; read the directory we have
+	mov edx, 0
+	mov eax, [.directory_lba]
+	mov ebx, [.blkdev]
+	mov ecx, 8		; for now..
+	mov edi, [disk_buffer]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error
+
+	; search for an empty entry
+	mov esi, [disk_buffer]
+	mov ecx, 64
+
+.find_entry_loop:
+	test byte[esi+XFS_FLAGS], XFS_FLAGS_PRESENT
+	jz .found_entry
+
+	add esi, 64
+	loop .find_entry_loop
+	jmp .error
+
+.found_entry:
+	mov [.directory_entry], esi
+
+	; allocate a sector
+
+	mov esi, [.filename]
+	mov dl, '/'
+	call count_byte_in_string
+
+	mov ecx, eax
+	mov esi, [.filename]
+	call vfs_parse_filename
+	cmp esi, -1
+	je .error
+
+	; okay, we have the actual file name in ESI
+	call strlen
+	mov ecx, eax
+	mov edi, [.directory_entry]
+	rep movsb
+	xor al, al
+	stosb
+
+.start:
+
+.error:
+	mov eax, -1
+	ret
+
+align 4
+.filename		dd 0
+.file_entry		dd 0
+.lba_start		dd 0
+.lba_end		dd 0
+.blkdev			dd 0
+.directory_lba		dd 0
+.directory_entry	dd 0
+.partition		db 0
+.msg			db "xfs: created file '",0
 .msg2			db "', file handle ",0
 
 ; xfs_seek:
@@ -388,9 +523,11 @@ align 8
 ; Returns a pointer to an XFS directory entry for a file
 ; In\	ESI = Full path
 ; Out\	EAX = Pointer to directory entry, -1 on error
+; Out\	ECX = Starting sector of directory, 0 for disk error
 
 xfs_get_entry:
 	mov [.path], esi
+	mov [.directory_start], 0
 
 	; determine the device which contains the xfs partition
 	mov al, [esi]		; drive letter
@@ -515,6 +652,8 @@ xfs_get_entry:
 
 	mov edx, 0
 	mov eax, [esi+XFS_LBA]
+	mov [.directory_start], eax
+
 	mov ecx, [esi+XFS_SIZE_SECTORS]
 	mov ebx, [.blkdev]
 	mov edi, [disk_buffer]
@@ -575,9 +714,14 @@ xfs_get_entry:
 	call kfree
 
 	pop eax
+	mov ecx, [.directory_start]
 	ret
 
 .root_only:
+	mov eax, [.lba_start]
+	inc eax
+	mov [.directory_start], eax
+
 	; load the root directory
 	mov edx, 0
 	mov eax, [.lba_start]
@@ -628,6 +772,7 @@ xfs_get_entry:
 	call kfree
 
 	pop eax		; eax = directory entry
+	mov ecx, [.directory_start]
 	ret
 
 .error_free:
@@ -636,6 +781,7 @@ xfs_get_entry:
 
 .error:
 	mov eax, -1
+	mov ecx, [.directory_start]
 	ret
 
 align 4
@@ -647,10 +793,24 @@ align 4
 .path_number		dd 0
 .total_slashes		dd 0
 .directory_size		dd 0
+.directory_start	dd 0
 .partition		db 0
 
 .buffer:		times 33 db 0
 
+; xfs_allocate_sectors:
+; Allocates sectors
+; In\	EAX = LBA start
+; In\	EBX = Block device
+; In\	ECX = Number of sectors
+; In\	EDX = LBA end
+; Out\	EAX = First free sector, -1 on error
+
+xfs_allocate_sectors:
+
+align 4
+.lba			dd 0
+.lba_end		dd 0
 
 
 

@@ -389,8 +389,9 @@ idle_process:
 
 	; Default bitmap font
 	font:
+	file "kernel/fonts/alotware.bin"
 	;file "kernel/fonts/term.bin"
-	file "kernel/fonts/script.bin"
+	;file "kernel/fonts/script.bin"
 	;file "kernel/fonts/cp437.bin"
 	;include "kernel/fonts/glaux-mono.asm"
 

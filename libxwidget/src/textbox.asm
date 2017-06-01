@@ -318,5 +318,44 @@ align 4
 .components			dd 0
 .components_end			dd 0
 	
+; xwidget_remove_all_focus:
+; Unfocuses all textboxes
+; In\	EAX = Window handle
+; Out\	Nothing
+
+xwidget_remove_all_focus:
+	shl eax, 3
+	add eax, xwidget_windows_data
+	mov edi, [eax+4]	; components array
+	mov [.components], edi
+
+	add edi, 256*256
+	mov [.components_end], edi
+
+	mov esi, [.components]
+
+.loop:
+	cmp esi, [.components_end]
+	jge .finish
+
+	cmp byte[esi], XWIDGET_CPNT_TEXTBOX
+	jne .next
+
+	test byte[esi+XWIDGET_TEXTBOX_FLAGS], XWIDGET_TEXTBOX_FOCUSED
+	jnz .unfocus
+
+.next:
+	add esi, 256
+	jmp .loop
+
+.unfocus:
+	and byte[esi+XWIDGET_TEXTBOX_FLAGS], not XWIDGET_TEXTBOX_FOCUSED
+
+.finish:
+	ret
+
+align 4
+.components			dd 0
+.components_end			dd 0
 
 

@@ -314,6 +314,10 @@ xwidget_redraw:
 	mov ebx, [xwidget_textbox_fg]
 	int 0x60
 
+	mov esi, [.tmp]
+	test byte[esi+XWIDGET_TEXTBOX_FLAGS], XWIDGET_TEXTBOX_FOCUSED
+	jz .textbox_done
+
 	mov edi, [.handle]
 	mov cx, [.textbox_position_x]
 	mov dx, [.textbox_position_y]
