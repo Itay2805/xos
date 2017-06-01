@@ -367,15 +367,20 @@ usb_hid_update_mouse:
 	cmp eax, 0
 	jne .done
 
+	; NOTE: Commented the few lines below
+	; Because they cause the window manager to not be aware when the user releases the mouse
+	; Thus, it causes two consecutive clicks on the same pixel to be interpreted as a drag
+	; Which causes problems in applications that need clicking...
+
 	; if the mouse packet is empty, ignore it and save CPU time
-	cmp [mouse_packet.data], 0
-	jne .work
+	;cmp [mouse_packet.data], 0
+	;jne .work
 
-	cmp [mouse_packet.x], 0
-	jne .work
+	;cmp [mouse_packet.x], 0
+	;jne .work
 
-	cmp [mouse_packet.y], 0
-	je .done
+	;cmp [mouse_packet.y], 0
+	;je .done
 
 .work:
 	; update mouse position and inform the window manager if necessary
