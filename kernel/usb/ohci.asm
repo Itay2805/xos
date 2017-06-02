@@ -64,7 +64,7 @@ OHCI_COMM_DONE_HEAD			= 0x84		; dword
 OHCI_COMM_SIZE				= 256		; bytes...
 
 OHCI_DESCRIPTORS_SIZE			= 8		; 32 KB of descriptors is more than enough
-OHCI_MAX_WAITS				= 8192		; max # of times to poll the controller before timeout
+OHCI_MAX_WAITS				= 16384		; max # of times to poll the controller before timeout
 
 align 4
 ohci_pci_list				dd 0
@@ -764,7 +764,7 @@ ohci_interrupt:
 
 .continue:
 	shl eax, 19
-	or eax, 1 shl 18		; buffer rounding
+	;or eax, 1 shl 18		; buffer rounding
 	or eax, 1 shl 25		; data toggle is in TD not ED
 	or eax, 14 shl 28		; new TD to be executed
 	stosd

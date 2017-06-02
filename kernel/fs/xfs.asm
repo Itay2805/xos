@@ -218,7 +218,7 @@ xfs_create:
 	mov byte[eax+XFS_FLAGS], XFS_FLAGS_PRESENT
 
 	; TO-DO: put time/date support here
-	jmp .start
+	jmp .write_directory
 
 .create_entry:
 	cmp ecx, 0		; disk error
@@ -253,7 +253,18 @@ xfs_create:
 	mov [.directory_entry], esi
 
 	; allocate a sector
+	mov eax, [.lba_start]
+	mov edx, [.lba_end]
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	call xfs_allocate_sectors
 
+	cmp eax, -1
+	je .error
+
+	mov [.file_lba], eax
+
+	; actual file name...
 	mov esi, [.filename]
 	mov dl, '/'
 	call count_byte_in_string
@@ -272,7 +283,69 @@ xfs_create:
 	xor al, al
 	stosb
 
-.start:
+	; create the remaining of the directory entry
+	mov edi, [.directory_entry]
+	mov eax, [.file_lba]
+	mov [edi+XFS_LBA], eax
+	mov dword[edi+XFS_SIZE], 0		; byte
+	mov dword[edi+XFS_SIZE_SECTORS], 1
+	mov byte[edi+XFS_FLAGS], XFS_FLAGS_PRESENT
+
+	; TO-DO: date and time support here!
+
+.write_directory:
+	mov edx, 0
+	mov eax, [.directory_lba]
+	mov ebx, [.blkdev]
+	mov ecx, 8		; for now
+	mov esi, [disk_buffer]
+	call blkdev_write
+
+	cmp al, 0
+	jne .error
+
+	; blank the file
+	mov ecx, 512
+	call kmalloc
+	mov [.zeroes], eax
+
+	mov edi, [.zeroes]
+	mov al, 0
+	mov ecx, 512
+	rep stosb
+
+	mov edx, 0
+	mov eax, [.file_lba]
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	mov esi, [.zeroes]
+	call blkdev_write
+
+	cmp al, 0
+	jne .error
+
+	; okay, open the file
+	mov esi, [.filename]
+	mov edx, FILE_WRITE or FILE_READ	; permissions
+	call xfs_open
+
+	; file handle in eax...
+	mov [.handle], eax
+
+	mov esi, .msg
+	call kprint
+	mov esi, [.filename]
+	call kprint
+	mov esi, .msg2
+	call kprint
+	mov eax, [.handle]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	mov eax, [.handle]
+	ret
 
 .error:
 	mov eax, -1
@@ -286,6 +359,9 @@ align 4
 .blkdev			dd 0
 .directory_lba		dd 0
 .directory_entry	dd 0
+.file_lba		dd 0
+.zeroes			dd 0
+.handle			dd 0
 .partition		db 0
 .msg			db "xfs: created file '",0
 .msg2			db "', file handle ",0
@@ -807,10 +883,145 @@ align 4
 ; Out\	EAX = First free sector, -1 on error
 
 xfs_allocate_sectors:
+	mov [.lba], eax
+	mov [.blkdev], ebx
+	mov [.count], ecx
+	mov [.lba_end], edx
+
+	; allocate memory
+	mov ecx, 512
+	call malloc
+	mov [.bootsect], eax
+
+	; read the boot sector
+	mov edx, 0
+	mov eax, [.lba]
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	mov edi, [.bootsect]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error
+
+	mov eax, [.lba_end]
+	mov edi, [.bootsect]
+	mov ebx, [edi+9]		; size of sector usage bitmap
+	mov [.bitmap_size], ebx
+
+	sub eax, ebx			; eax = lba sector of bitmap
+
+	mov [.bitmap], eax
+
+	mov ecx, [.count]
+	call malloc
+	mov [.zeroes], eax
+
+	mov eax, [.bootsect]
+	call free
+
+	; memory manager initializes memory to zero, we don't need to do anything here
+
+	; read the bitmap
+	mov ecx, [.bitmap_size]
+	shl ecx, 9
+	call malloc
+	mov [.memory], eax
+
+	mov edx, 0
+	mov eax, [.bitmap]
+	mov ebx, [.blkdev]
+	mov ecx, [.bitmap_size]
+	mov edi, [.memory]
+	call blkdev_read
+
+	cmp al, 0
+	jne .error_free
+
+	; search for free sectors
+	mov ecx, [.bitmap_size]
+	shl ecx, 9		; mul 512
+	mov esi, [.memory]
+
+.find_loop:
+	push esi
+	push ecx
+	mov edi, [.zeroes]
+	mov ecx, [.count]
+	rep cmpsb
+	je .found
+
+	pop ecx
+	pop esi
+
+	inc esi
+	loop .find_loop
+	jmp .error_free
+
+.found:
+	pop ecx		; don't need this
+	pop esi
+	mov [.tmp], esi
+
+	sub esi, [.memory]
+	add esi, [.lba]
+	mov [.return], esi
+
+	mov edi, [.tmp]
+	mov al, 1
+	mov ecx, [.count]
+	rep stosb
+
+	mov edx, 0
+	mov eax, [.bitmap]
+	mov ebx, [.blkdev]
+	mov ecx, [.bitmap_size]
+	mov esi, [.memory]
+	call blkdev_write
+
+	cmp al, 0
+	jne .error_free
+
+	mov esi, .msg
+	call kprint
+	mov eax, [.return]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
+	mov eax, [.zeroes]
+	call free
+	mov eax, [.memory]
+	call free
+
+	mov eax, [.return]
+	ret
+
+.error_free:
+	mov eax, [.zeroes]
+	call free
+	mov eax, [.memory]
+	call free
+
+.error:
+	mov eax, -1
+	ret
 
 align 4
 .lba			dd 0
 .lba_end		dd 0
+.blkdev			dd 0
+.count			dd 0
+.memory			dd 0
+.bitmap_size		dd 0
+.bitmap			dd 0
+.zeroes			dd 0
+.bootsect		dd 0
+.return			dd 0
+.tmp			dd 0
+.msg			db "xfs: found free sector LBA ",0
+
 
 
 

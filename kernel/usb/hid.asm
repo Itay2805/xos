@@ -373,8 +373,10 @@ usb_hid_update_mouse:
 	; Which causes problems in applications that need clicking...
 
 	; if the mouse packet is empty, ignore it and save CPU time
-	;cmp [mouse_packet.data], 0
-	;jne .work
+	cmp [mouse_packet.data], 0
+	je .no_data_packet
+
+	mov [.zero_packets], 0
 
 	;cmp [mouse_packet.x], 0
 	;jne .work
@@ -397,6 +399,21 @@ usb_hid_update_mouse:
 
 .done:
 	ret
+
+.no_data_packet:
+	inc [.zero_packets]
+	cmp [.zero_packets], 4
+	jg .mouse_release
+
+	ret
+
+.mouse_release:
+	call update_usb_mouse
+	call redraw_mouse
+
+	ret
+
+.zero_packets			db 0
 
 ; update_usb_mouse:
 ; Updates the mouse position using USB HID mouse

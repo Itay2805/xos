@@ -215,10 +215,6 @@ assembler_error:
 ; Out\	EBX = File handle
 
 create:
-	mov ebx, 0	; for testing if FASM itself works, until I implement "real" write access
-	clc
-	ret
-
 	pusha
 
 	mov esi, edx
