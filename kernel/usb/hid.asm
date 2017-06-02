@@ -211,6 +211,7 @@ usb_hid_init_mouse:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -227,6 +228,7 @@ usb_hid_init_mouse:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -365,7 +367,13 @@ usb_hid_update_mouse:
 	call usb_interrupt
 
 	cmp eax, 0
-	jne .done
+	jne .mouse_release
+
+	mov edi, mouse_packet
+	mov esi, .zeroes
+	mov ecx, 3
+	rep cmpsb
+	je .zero_packet
 
 	; NOTE: Commented the few lines below
 	; Because they cause the window manager to not be aware when the user releases the mouse
@@ -373,10 +381,8 @@ usb_hid_update_mouse:
 	; Which causes problems in applications that need clicking...
 
 	; if the mouse packet is empty, ignore it and save CPU time
-	cmp [mouse_packet.data], 0
-	je .no_data_packet
-
-	mov [.zero_packets], 0
+	;cmp [mouse_packet.data], 0
+	;je .zero_data
 
 	;cmp [mouse_packet.x], 0
 	;jne .work
@@ -385,6 +391,8 @@ usb_hid_update_mouse:
 	;je .done
 
 .work:
+	mov [.zero_count], 0
+
 	; update mouse position and inform the window manager if necessary
 	call update_usb_mouse
 
@@ -400,20 +408,21 @@ usb_hid_update_mouse:
 .done:
 	ret
 
-.no_data_packet:
-	inc [.zero_packets]
-	cmp [.zero_packets], 4
-	jg .mouse_release
+.zero_packet:
+	inc [.zero_count]
+	cmp [.zero_count], 4
+	jge .mouse_release
 
 	ret
 
 .mouse_release:
-	call update_usb_mouse
+	call update_mouse
 	call redraw_mouse
-
 	ret
 
-.zero_packets			db 0
+align 4
+.zero_count			dd 0
+.zeroes				db 0,0,0
 
 ; update_usb_mouse:
 ; Updates the mouse position using USB HID mouse

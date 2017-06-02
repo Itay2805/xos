@@ -713,10 +713,10 @@ xfs_get_entry:
 	; ensure it is a directory and not a file
 	mov al, [esi+XFS_FLAGS]
 	test al, XFS_FLAGS_PRESENT
-	jz .error_free
+	jz .error_nodir
 
 	test al, XFS_FLAGS_DIRECTORY
-	jz .error_free
+	jz .error_nodir
 
 	; now loop through all the directories searching for the file
 	inc [.path_number]
@@ -736,7 +736,7 @@ xfs_get_entry:
 	call blkdev_read
 
 	cmp al, 0
-	jne .error_free
+	jne .error_nodir
 
 	mov esi, [.path_copy]
 	mov ecx, [.path_number]
@@ -858,6 +858,14 @@ xfs_get_entry:
 .error:
 	mov eax, -1
 	mov ecx, [.directory_start]
+	ret
+
+.error_nodir:
+	mov eax, [.path_copy]
+	call kfree
+
+	mov eax, -1
+	mov ecx, 0
 	ret
 
 align 4
