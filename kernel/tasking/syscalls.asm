@@ -25,7 +25,7 @@ api_table:
 	dd vfs_seek		; 0x000D
 	dd vfs_tell		; 0x000E
 	dd vfs_read		; 0x000F
-	dd 0;vfs_write		; 0x0010
+	dd vfs_write		; 0x0010
 	dd wm_render_char	; 0x0011
 	dd wm_kill		; 0x0012
 	dd get_screen_info	; 0x0013

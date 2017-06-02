@@ -7,20 +7,20 @@ use32
 ; Initializes the memory
 
 init_memory:
-	mov ecx, 0x80000*7
+	mov ecx, 10*0x100000
 	mov ebp, XOS_MALLOC
 	int 0x60
 	mov [memory_start], eax
 
-	add eax, (0x80000*7) - 1
+	add eax, (10*0x100000) - 1
 	mov [memory_end], eax
 
-	mov ecx, 0x80000
+	mov ecx, 7*0x100000
 	mov ebp, XOS_MALLOC
 	int 0x60
 	mov [additional_memory], eax
 
-	add eax, 0x7FFFF
+	add eax, (7*0x100000) - 1
 	mov [additional_memory_end], eax
 
 	ret
@@ -295,7 +295,26 @@ align 4
 ; Out\	EFLAGS.CF = 0 on success
 
 write:
-	clc	; for testing if FASM itself works, until I implement "real" write access
+	pusha
+
+	push ecx
+
+	mov eax, ebx
+	mov esi, edx
+	mov ebp, XOS_WRITE
+	int 0x60
+
+	pop ecx
+	cmp eax, ecx
+	jne .error
+
+	popa
+	clc
+	ret
+
+.error:
+	popa
+	stc
 	ret
 
 ; read:

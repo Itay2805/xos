@@ -39,8 +39,8 @@ main:
 	; create a window
 	mov ax, 64
 	mov bx, 64
-	mov si, 256
-	mov di, 208
+	mov si, 480
+	mov di, 336
 	mov dx, 0
 	mov ecx, title
 	call xwidget_create_window
@@ -68,7 +68,7 @@ main:
 	mov eax, [window_handle]
 	mov cx, 64
 	mov dx, 4
-	mov si, 190
+	mov si, 414
 	mov di, 18
 	mov bl, 0
 	mov ebp, input_textbox
@@ -77,7 +77,7 @@ main:
 	mov eax, [window_handle]
 	mov cx, 64
 	mov dx, 4+20
-	mov si, 190
+	mov si, 414
 	mov di, 18
 	mov bl, 0
 	mov ebp, output_textbox
@@ -93,22 +93,22 @@ main:
 	mov eax, [window_handle]
 	mov cx, 4
 	mov dx, 4+20+20+20
-	mov si, 248
-	mov di, 96
+	mov si, 472
+	mov di, 224
 	mov bl, XWIDGET_TEXTBOX_MULTILINE
 	mov ebp, log_textbox
 	call xwidget_create_textbox
 
 	mov eax, [window_handle]
 	mov cx, 4
-	mov dx, 168
+	mov dx, 296
 	mov esi, assemble_text
 	call xwidget_create_button
 	mov [assemble_handle], eax
 
 	mov eax, [window_handle]
-	mov cx, 184
-	mov dx, 176
+	mov cx, 408
+	mov dx, 304
 	mov esi, version_text
 	mov ebx, 0xAAAAAA
 	call xwidget_create_label

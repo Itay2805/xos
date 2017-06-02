@@ -422,8 +422,8 @@ blkdev_write:
 	add ebx, [blkdev_structure]
 
 	; give control to device-specific code
-	;cmp byte[ebx], BLKDEV_MEMDISK
-	;je .memdisk
+	cmp byte[ebx], BLKDEV_MEMDISK
+	je .memdisk
 
 	cmp byte[ebx], BLKDEV_ATA
 	je .ata
@@ -510,6 +510,14 @@ blkdev_write:
 	add [.buffer], 255*512
 	add dword[.lba], 255
 	jmp .ahci_loop
+
+.memdisk:
+	mov edx, dword[.lba+4]
+	mov eax, dword[.lba]
+	mov ecx, [.count]
+	mov esi, [.buffer]
+	call memdisk_read
+	ret
 
 .done:
 	mov al, 0

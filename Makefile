@@ -36,7 +36,6 @@ all:
 	dd if=out/monitor.exe conv=notrunc bs=512 seek=1221 of=disk.hdd
 	dd if=out/rtl8139.sys conv=notrunc bs=512 seek=1301 of=disk.hdd
 	dd if=out/fasm.exe conv=notrunc bs=512 seek=1400 of=disk.hdd
-	dd if=test.asm conv=notrunc bs=512 seek=1500 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap

@@ -128,17 +128,17 @@ xfs_open:
 	xor al, al
 	stosb
 
-	mov esi, .msg
-	call kprint
-	mov esi, [.filename]
-	call kprint
-	mov esi, .msg2
-	call kprint
-	mov eax, [.handle]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .msg
+	;call kprint
+	;mov esi, [.filename]
+	;call kprint
+	;mov esi, .msg2
+	;call kprint
+	;mov eax, [.handle]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	inc [open_files]
 
@@ -332,17 +332,17 @@ xfs_create:
 	; file handle in eax...
 	mov [.handle], eax
 
-	mov esi, .msg
-	call kprint
-	mov esi, [.filename]
-	call kprint
-	mov esi, .msg2
-	call kprint
-	mov eax, [.handle]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .msg
+	;call kprint
+	;mov esi, [.filename]
+	;call kprint
+	;mov esi, .msg2
+	;call kprint
+	;mov eax, [.handle]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	mov eax, [.handle]
 	ret
@@ -583,6 +583,151 @@ align 4
 align 8
 .file_start		dq 0	; bytes
 
+; xfs_write:
+; Writes to a file stream
+; In\	EAX = File handle
+; In\	ECX = # bytes to write
+; In\	ESI = Buffer to write
+; Out\	EAX = # bytes successfully written
+
+xfs_write:
+	mov [.handle], eax
+	mov [.count], ecx
+	mov [.buffer], esi
+
+	; get filename entry
+	mov esi, [.handle]
+	shl esi, 7
+	add esi, [file_handles]
+	add esi, FILE_NAME
+	call xfs_get_entry
+
+	cmp eax, -1
+	je .bad
+
+	mov [.file_entry], eax
+	mov [.directory_lba], ecx
+
+	mov edx, [eax+XFS_SIZE]		; bytes
+	mov [.size], edx
+
+	; determine the block device
+	mov esi, [.handle]
+	shl esi, 7
+	add esi, [file_handles]
+	mov al, [esi+FILE_NAME]		; drive letter
+	and eax, 0xFF
+	sub eax, 'A'
+	shl eax, 3			; mul 8
+	add eax, [virtual_drives]
+
+	mov edx, [eax+VIRTUAL_DRIVE_DRIVE]
+	mov [.blkdev], edx
+
+	mov dl, [eax+VIRTUAL_DRIVE_PARTITION]
+	mov [.partition], dl
+
+	; determine the partition start and end
+	mov ecx, 512
+	call kmalloc
+	mov [.bootsect], eax
+
+	mov edx, 0
+	mov eax, 0
+	mov ebx, [.blkdev]
+	mov ecx, 1
+	mov edi, [.bootsect]
+	call blkdev_read
+
+	cmp al, 0
+	jne .bad
+
+	mov esi, [.bootsect]
+	add esi, 446
+	movzx ecx, [.partition]
+	shl ecx, 4
+	add esi, ecx
+	mov eax, [esi+8]
+	mov [.lba_start], eax
+
+	add eax, [esi+12]
+	mov [.lba_end], eax
+
+	mov eax, [.bootsect]
+	call kfree
+
+	; allocate sectors
+	mov eax, [.lba_start]
+	mov edx, [.lba_end]
+	mov ebx, [.blkdev]
+	mov ecx, [.count]		; round to sectors
+	add ecx, 511
+	shr ecx, 9
+	call xfs_allocate_sectors
+
+	cmp eax, -1
+	je .bad
+
+	mov [.file_lba], eax
+
+	; write the directory entry
+	mov edi, [.file_entry]
+	mov eax, [.file_lba]
+	mov [edi+XFS_LBA], eax
+	mov eax, [.count]
+	mov [edi+XFS_SIZE], eax
+	add eax, 511
+	shr eax, 9
+	mov [edi+XFS_SIZE_SECTORS], eax
+
+	mov edx, 0
+	mov eax, [.directory_lba]
+	mov ebx, [.blkdev]
+	mov ecx, 8
+	mov esi, [disk_buffer]
+	call blkdev_write
+
+	cmp al, 0
+	jne .bad
+
+	; okay, write to the file
+	mov eax, [.file_lba]
+	mov ebx, 512
+	mul ebx
+
+	mov ecx, [.count]
+	mov esi, [.buffer]
+	mov ebx, [.blkdev]
+	call blkdev_write_bytes
+
+	cmp al, 0
+	jne .bad
+
+	mov eax, [.count]
+	ret	
+
+.bad:
+	mov eax, 0
+	ret
+
+align 4
+.handle			dd 0
+.count			dd 0
+.buffer			dd 0
+.size			dd 0
+.blkdev			dd 0
+.directory_lba		dd 0
+.file_entry		dd 0
+.lba_start		dd 0
+.lba_end		dd 0
+.bootsect		dd 0
+.new_buffer		dd 0
+.file_lba		dd 0
+.tmp_buffer		dd 0
+.partition		db 0
+
+align 8
+.file_start		dq 0		; bytes
 
 
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -936,10 +1081,13 @@ xfs_allocate_sectors:
 	call malloc
 	mov [.memory], eax
 
+	mov [.second_half], 0
+
 	mov edx, 0
 	mov eax, [.bitmap]
 	mov ebx, [.blkdev]
-	mov ecx, [.bitmap_size]
+	mov ecx, [.bitmap_size]		; divide the accesses into two halves...
+	shr ecx, 1
 	mov edi, [.memory]
 	call blkdev_read
 
@@ -948,10 +1096,10 @@ xfs_allocate_sectors:
 
 	; search for free sectors
 	mov ecx, [.bitmap_size]
-	shl ecx, 9		; mul 512
+	shl ecx, 8		; mul 256 (512/2)
 	mov esi, [.memory]
 
-.find_loop:
+.find1_loop:
 	push esi
 	push ecx
 	mov edi, [.zeroes]
@@ -963,7 +1111,44 @@ xfs_allocate_sectors:
 	pop esi
 
 	inc esi
-	loop .find_loop
+	loop .find1_loop
+
+	; read the second half
+	mov [.second_half], 1
+
+	mov edx, 0
+	mov eax, [.bitmap]
+	mov ebx, [.blkdev]
+	mov ecx, [.bitmap_size]
+	shr ecx, 1			; second half
+	add eax, ecx
+	mov edi, [.memory]
+
+	mov [.bitmap], eax
+
+	call blkdev_read
+
+	cmp al, 0
+	jne .error_free
+
+	; search again
+	mov ecx, [.bitmap_size]
+	shl ecx, 8		; mul 256 (512/2)
+	mov esi, [.memory]
+
+.find2_loop:
+	push esi
+	push ecx
+	mov edi, [.zeroes]
+	mov ecx, [.count]
+	rep cmpsb
+	je .found
+
+	pop ecx
+	pop esi
+
+	inc esi
+	loop .find2_loop
 	jmp .error_free
 
 .found:
@@ -973,6 +1158,15 @@ xfs_allocate_sectors:
 
 	sub esi, [.memory]
 	add esi, [.lba]
+
+	cmp [.second_half], 1
+	jne .continue
+
+	mov ecx, [.bitmap_size]
+	shr ecx, 1
+	add esi, ecx
+
+.continue:
 	mov [.return], esi
 
 	mov edi, [.tmp]
@@ -984,19 +1178,20 @@ xfs_allocate_sectors:
 	mov eax, [.bitmap]
 	mov ebx, [.blkdev]
 	mov ecx, [.bitmap_size]
+	shr ecx, 1
 	mov esi, [.memory]
 	call blkdev_write
 
 	cmp al, 0
 	jne .error_free
 
-	mov esi, .msg
-	call kprint
-	mov eax, [.return]
-	call int_to_string
-	call kprint
-	mov esi, newline
-	call kprint
+	;mov esi, .msg
+	;call kprint
+	;mov eax, [.return]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	mov eax, [.zeroes]
 	call free
@@ -1028,6 +1223,7 @@ align 4
 .bootsect		dd 0
 .return			dd 0
 .tmp			dd 0
+.second_half		db 0
 .msg			db "xfs: found free sector LBA ",0
 
 

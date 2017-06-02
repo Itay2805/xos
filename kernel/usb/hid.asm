@@ -410,7 +410,7 @@ usb_hid_update_mouse:
 
 .zero_packet:
 	inc [.zero_count]
-	cmp [.zero_count], 4
+	cmp [.zero_count], 5
 	jge .mouse_release
 
 	ret

@@ -526,6 +526,63 @@ align 4
 .count			dd 0
 .buffer			dd 0
 
+; vfs_write:
+; Reads from a file stream
+; In\	EAX = File handle
+; In\	ECX = # bytes to write
+; In\	ESI = Buffer to write
+; Out\	EAX = # of bytes successfully written
+
+vfs_write:
+	mov [.handle], eax
+	mov [.count], ecx
+	mov [.buffer], esi
+
+	cmp eax, MAXIMUM_FILE_HANDLES
+	jge .bad
+
+	shl eax,7
+	add eax, [file_handles]
+	test dword[eax], FILE_PRESENT
+	jz .bad
+
+	test dword[eax], FILE_WRITE	; check for write permission
+	jz .bad
+
+	; determine which driver to call
+	mov al, [eax+FILE_NAME]		; drive letter
+	and eax, 0xFF
+	sub eax, 'A'
+	shl eax, 3		; mul 8
+	add eax, [virtual_drives]
+
+	test byte[eax+VIRTUAL_DRIVE_FLAGS], VIRTUAL_DRIVE_PRESENT
+	jz .bad
+
+	mov al, [eax+VIRTUAL_DRIVE_TYPE]	; FS type
+
+	cmp al, XFS_SIGNATURE_MBR
+	je .xfs
+
+	; unknown fs...
+	jmp .bad
+
+.xfs:
+	mov eax, [.handle]
+	mov ecx, [.count]
+	mov esi, [.buffer]
+	call xfs_write
+	ret
+
+.bad:
+	mov eax, 0
+	ret
+
+align 4
+.handle			dd 0
+.count			dd 0
+.buffer			dd 0
+
 ; vfs_close:
 ; Closes a file
 ; In\	EAX = File handle
