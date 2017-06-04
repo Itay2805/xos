@@ -9,8 +9,9 @@ application_header:
 	.id			db "XOS1"	; tell the kernel we are a valid application
 	.type			dd 1		; driver
 	.entry			dd main		; entry point
+	.pci_ids		dd pci_ids	; list of supported PCI IDs
+	.driver_name		dd driver_name
 	.reserved0		dq 0
-	.reserved1		dq 0
 
 pci_ids:	; list of supported PCI vendor/device combinations, terminated by 0xFFFFFFFF
 	dd 0x813910EC		; Realtek 8139, QEMU
@@ -96,14 +97,6 @@ main:
 ; Out\	EAX = 0 on success, 1 if device not found
 
 driver_init:
-	mov esi, driver_name
-	mov ebp, XOS_KPRINT
-	int 0x61
-
-	mov esi, copyright
-	mov ebp, XOS_KPRINT
-	int 0x61
-
 	; scan the PCI bus for the device
 	mov esi, pci_ids
 
@@ -123,6 +116,14 @@ driver_init:
 	mov [pci_bus], al
 	mov [pci_slot], ah
 	mov [pci_function], bl
+
+	mov esi, driver_name
+	mov ebp, XOS_KPRINT
+	int 0x61
+
+	mov esi, copyright
+	mov ebp, XOS_KPRINT
+	int 0x61
 
 	mov esi, found_msg
 	mov ebp, XOS_KPRINT
@@ -203,10 +204,6 @@ driver_init:
 	jmp .loop
 
 .no:
-	mov esi, not_found_msg
-	mov ebp, XOS_KPRINT
-	int 0x61
-
 	mov eax, 1
 	ret
 
@@ -366,7 +363,6 @@ get_mac:
 
 	found_msg			db "rtl8139: found device on PCI slot ",0
 	colon				db ":",0
-	not_found_msg			db "rtl8139: device not present.",10,0
 	io_msg				db "rtl8139: base I/O port is 0x",0
 	reset_timeout_msg		db "rtl8139: device reset timed out.",10,0
 

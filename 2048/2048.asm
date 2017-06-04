@@ -664,7 +664,7 @@ create_new_number:
 
 .okay:
 	call rand
-	cmp ecx, 15
+	cmp eax, 15
 	jg .okay
 
 	shl eax, 2		; mul 4

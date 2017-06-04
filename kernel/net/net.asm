@@ -23,12 +23,19 @@ broadcast_mac:			times 6 db 0xFF		; FF:FF:FF:FF:FF:FF
 net_init:
 	; TO-DO: make a configuration file which tells which driver to load
 	; TO-DO: auto-detect network cards and load an appropriate driver or give information
-	mov esi, .driver_filename
+	mov esi, .rtl8139_filename
+	call load_driver
+
+	cmp eax, 0
+	je .start
+
+	mov esi, .i8254x_filename
 	call load_driver
 
 	cmp eax, 0
 	jne .no_driver
 
+.start:
 	mov [net_mem], ebx
 	mov [net_mem_size], ecx
 	mov [net_entry], edx
@@ -92,7 +99,8 @@ net_init:
 
 	ret
 
-.driver_filename:		db "drivers/rtl8139.sys",0
+.rtl8139_filename:		db "drivers/netio/rtl8139.sys",0
+.i8254x_filename:		db "drivers/netio/i8254x.sys",0
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
