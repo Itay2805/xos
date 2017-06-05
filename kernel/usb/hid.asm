@@ -59,25 +59,13 @@ usb_keyboard_repeat			db 0
 ; Detects and initializes USB HID devices
 
 usb_hid_init:
+	pushfd
 	cli
 
 	call usb_hid_init_mouse
 	call usb_hid_init_keyboard
 
-	cmp [usb_mouse_interval], 0
-	je .done
-
-	cmp [usb_keyboard_interval], 0
-	je .done
-
-	mov eax, [usb_mouse_interval]
-	cmp eax, [usb_keyboard_interval]
-	jne .done
-
-	add [usb_keyboard_interval], 2
-
-.done:
-	sti
+	popfd
 	ret
 
 ; usb_hid_init_mouse:
@@ -208,10 +196,15 @@ usb_hid_init_mouse:
 	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
 	jz .try_next_endpoint
 
+	; interrupt endpoint?
+	mov al, byte[esi+USB_ENDPOINT_TRANSFER_TYPE]
+	and al, 3
+	cmp al, 3					; interrupt?
+	jne .try_next_endpoint
+
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
-	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -225,10 +218,15 @@ usb_hid_init_mouse:
 	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
 	jz .done
 
+	; interrupt endpoint?
+	mov al, byte[esi+USB_ENDPOINT_TRANSFER_TYPE]
+	and al, 3
+	cmp al, 3					; interrupt?
+	jne .done
+
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
-	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -638,6 +636,12 @@ usb_hid_init_keyboard:
 	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
 	jz .try_next_endpoint
 
+	; interrupt endpoint?
+	mov al, byte[esi+USB_ENDPOINT_TRANSFER_TYPE]
+	and al, 3
+	cmp al, 3					; interrupt?
+	jne .try_next_endpoint
+
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
@@ -653,6 +657,12 @@ usb_hid_init_keyboard:
 	add esi, USB_ENDPOINT_SIZE
 	test byte[esi+USB_ENDPOINT_ADDRESS], 0x80	; in/out?
 	jz .done
+
+	; interrupt endpoint?
+	mov al, byte[esi+USB_ENDPOINT_TRANSFER_TYPE]
+	and al, 3
+	cmp al, 3					; interrupt?
+	jne .done
 
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
@@ -690,22 +700,22 @@ usb_hid_init_keyboard:
 	jne .done
 
 	; disable reports unless the device has something to report
-	mov [usb_setup_packet.request_type], 0x21
-	mov [usb_setup_packet.request], USB_HID_SET_IDLE
-	mov [usb_setup_packet.value], 0		; duration indefinite, all reports
-	mov [usb_setup_packet.index], 0
-	mov [usb_setup_packet.length], 0
+	;mov [usb_setup_packet.request_type], 0x21
+	;mov [usb_setup_packet.request], USB_HID_SET_IDLE
+	;mov [usb_setup_packet.value], 0		; duration indefinite, all reports
+	;mov [usb_setup_packet.index], 0
+	;mov [usb_setup_packet.length], 0
 
-	mov eax, [.controller]
-	mov bl, [.address]
-	mov bh, 0
-	mov esi, usb_setup_packet
-	mov edi, 0
-	mov ecx, 0
-	call usb_setup
+	;mov eax, [.controller]
+	;mov bl, [.address]
+	;mov bh, 0
+	;mov esi, usb_setup_packet
+	;mov edi, 0
+	;mov ecx, 0
+	;call usb_setup
 
-	cmp eax, 0
-	jne .done
+	;cmp eax, 0
+	;jne .done
 
 	; enable boot protocol
 	mov [usb_setup_packet.request_type], 0x21
@@ -762,11 +772,9 @@ align 4
 usb_hid_update_keyboard:
 	cli
 
-	inc [.runs]
-
-	; receive a report using interrupt
-	mov edi, usb_keyboard_report
+	; receive keyboard packet
 	xor al, al
+	mov edi, usb_keyboard_report
 	mov ecx, 3
 	rep stosb
 
@@ -774,14 +782,29 @@ usb_hid_update_keyboard:
 	mov bl, [usb_keyboard_address]
 	mov bh, [usb_keyboard_endpoint]
 	mov esi, usb_keyboard_report
-	mov ecx, 3 or 0x80000000	; 3 bytes only, device to host
+	mov ecx, 3 or 0x80000000		; 3 bytes, device to host
 	call usb_interrupt
 
 	cmp eax, 0
-	jne .no_key
+	jne .zero_packet
+
+	;mov edi, .zeroes
+	;mov esi, usb_keyboard_report
+	;mov ecx, 3
+	;rep cmpsb
+	;je .key_release
 
 	cmp [usb_keyboard_report.key], 0
-	je .no_key
+	je .zero_packet
+
+	; okay, we know for sure a key is being pressed
+	mov [.zero_count], 0
+
+	cmp [usb_keyboard_report.key], USB_SCANCODE_RIGHT
+	je .right
+
+	cmp [usb_keyboard_report.key], USB_SCANCODE_LEFT
+	je .left
 
 	cmp [usb_keyboard_report.key], USB_SCANCODE_UP
 	je .up
@@ -789,95 +812,68 @@ usb_hid_update_keyboard:
 	cmp [usb_keyboard_report.key], USB_SCANCODE_DOWN
 	je .down
 
-	cmp [usb_keyboard_report.key], USB_SCANCODE_LEFT
-	je .left
-
-	cmp [usb_keyboard_report.key], USB_SCANCODE_RIGHT
-	je .right
-
-	jmp .continue
-
-.up:
-	mov [usb_keyboard_report.key], PS2_SCANCODE_UP
-	jmp .continue
-
-.down:
-	mov [usb_keyboard_report.key], PS2_SCANCODE_DOWN
-	jmp .continue
-
-.left:
-	mov [usb_keyboard_report.key], PS2_SCANCODE_LEFT
-	jmp .continue
+	mov al, [usb_keyboard_report.key]
+	jmp .work
 
 .right:
-	mov [usb_keyboard_report.key], PS2_SCANCODE_RIGHT
+	mov al, PS2_SCANCODE_RIGHT	; convert arrow key scancodes to PS/2
+	jmp .work
 
-.continue:
-	; make timestamp
-	mov eax, [usb_keyboard_timestamp]
-	mov [usb_keyboard_old_timestamp], eax
+.left:
+	mov al, PS2_SCANCODE_LEFT
+	jmp .work
 
-	mov eax, [timer_ticks]
-	mov [usb_keyboard_timestamp], eax
+.up:
+	mov al, PS2_SCANCODE_UP
+	jmp .work
 
-	mov al, [usb_keyboard_report.key]
-	cmp al, [last_scancode]
+.down:
+	mov al, PS2_SCANCODE_DOWN
+
+.work:
+	cmp al, [last_scancode]		; to check for auto-repeat...
 	je .check_repeat
 
-.normal:
-	mov al, [usb_keyboard_report.key]
-	mov [last_scancode], al			; store the scancode
-	mov [usb_keyboard_repeat], 0
-	mov [.repeat], 0
+	; nope, make a new scancode
+	mov [.repeats], 0
+	mov [last_scancode], al
 
-.event:
+	; determine the key and send an event
 	call usb_determine_key
-	;mov al, [last_character]
-	;call com1_send_byte
 	call wm_kbd_event
+
 	ret
 
 .check_repeat:
-	mov eax, [usb_keyboard_timestamp]
-	sub eax, [usb_keyboard_old_timestamp]
-	cmp eax, [usb_keyboard_repeat_check]
-	jle .holding_key
+	inc [.repeats]
+	cmp [.repeats],10
+	jg .okay_repeat
 
-	jmp .normal
+	ret
 
-.holding_key:
-	cmp [usb_keyboard_repeat], 1
-	je .event
+.okay_repeat:
+	call usb_determine_key
+	call wm_kbd_event
+	ret
 
-	cmp [.repeat], 0
-	je .make_initial_run
+.zero_packet:
+	inc [.zero_count]
+	cmp [.zero_count], 1
+	jg .key_release
 
-	mov eax, [.runs]
-	sub eax, [.initial_run]
-	cmp eax, 8
-	jg .start_holding
+	ret
 
-	jmp .no_key
+.key_release:
+	mov [last_scancode], 0
+	mov [last_character], 0
+	mov [.repeats], 0
 
-.make_initial_run:
-	mov [.repeat], 1
-	mov eax, [.runs]
-	mov [.initial_run], eax
-	jmp .no_key
-
-.start_holding:
-	mov [usb_keyboard_repeat], 1
-	jmp .event
-
-.no_key:
-	;mov [last_scancode], 0
-	;mov [last_character], 0
 	ret
 
 align 4
-.runs				dd 0	; # of times this routine ran
-.initial_run			dd 0
-.repeat				db 0
+.zero_count			dd 0
+.repeats			db 0
+.zeroes:			times 3 db 0
 
 ; usb_determine_key:
 ; Parses the USB keyboard report and stores information in last_character
