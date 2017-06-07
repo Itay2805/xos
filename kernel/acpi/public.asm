@@ -60,6 +60,7 @@ reboot:
 	cmp [current_task], 1
 	jg .no
 
+	call kill_all		; terminate all applications
 	;call acpi_reboot	; TO-DO!
 
 .hang:

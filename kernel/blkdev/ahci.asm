@@ -173,38 +173,12 @@ ahci_detect:
 .no_memory_msg			db "ahci: insufficient memory to map PCI MMIO memory.",10,0
 .port				db 0
 
-; ahci_disable_cache:
-; Disables caching
-
-ahci_disable_cache:
-	ret
-
-	wbinvd
-	mov eax, cr0
-	or eax, 0x60000000
-	mov cr0, eax
-	ret
-
-; ahci_enable_cache:
-; Enables caching
-
-ahci_enable_cache:
-	ret
-
-	wbinvd
-	mov eax, cr0
-	and eax, not 0x60000000
-	mov cr0, eax
-	ret
-
 ; ahci_handoff:
 ; Takes ownership of the AHCI from the BIOS
 ; In\	Nothing
 ; Out\	EFLAGS.CF = 0 on success
 
 ahci_handoff:
-	call ahci_disable_cache
-
 	; does the controller support handoff?
 	mov edi, [ahci_abar]
 	test dword[edi+AHCI_ABAR_HOST_CAP], 1
@@ -233,7 +207,6 @@ ahci_handoff:
 	mov esi, .done_msg
 	call kprint
 
-	call ahci_enable_cache
 	clc
 	ret
 
@@ -241,7 +214,6 @@ ahci_handoff:
 	mov esi, .no_handoff_msg
 	call kprint
 
-	call ahci_enable_cache
 	clc
 	ret
 
@@ -249,7 +221,6 @@ ahci_handoff:
 	mov esi, .not_respond_msg
 	call kprint
 
-	call ahci_enable_cache
 	stc
 	ret
 
@@ -265,11 +236,7 @@ ahci_handoff:
 ahci_start:
 	pusha
 
-	;mov eax, cr0
-	;mov [.tmp], eax
-
 	mov [.port], bl
-	call ahci_disable_cache
 
 	movzx edi, [.port]
 	shl edi, 7
@@ -282,13 +249,10 @@ ahci_start:
 
 	or dword[edi+AHCI_PORT_COMMAND], AHCI_COMMAND_START or AHCI_COMMAND_FIS_RECEIVE
 
-	;mov eax, [.tmp]
-	;mov cr0, eax
 	popa
 	ret
 
 .port				db 0
-.tmp				dd 0
 
 ; ahci_stop:
 ; Turns off AHCI command execution
@@ -298,11 +262,7 @@ ahci_start:
 ahci_stop:
 	pusha
 
-	;mov eax, cr0
-	;mov [.tmp], eax
-
 	mov [.port], bl
-	call ahci_disable_cache
 
 	movzx edi, [.port]
 	shl edi, 7
@@ -319,14 +279,10 @@ ahci_stop:
 	; disable FIS receive
 	and dword[edi+AHCI_PORT_COMMAND], not AHCI_COMMAND_FIS_RECEIVE
 
-	;mov eax, [.tmp]
-	;mov cr0, eax
-
 	popa
 	ret
 
 .port				db 0
-.tmp				dd 0
 
 ; ahci_identify:
 ; Identifies an AHCI device
@@ -335,8 +291,6 @@ ahci_stop:
 
 ahci_identify:
 	mov [.port], bl
-
-	call ahci_disable_cache
 
 	mov cl, [.port]
 	mov eax, 1
@@ -473,7 +427,6 @@ ahci_identify:
 	call blkdev_register
 
 .quit:
-	call ahci_enable_cache
 	ret
 
 .error:
@@ -483,7 +436,6 @@ ahci_identify:
 	mov esi, .error_msg
 	call kprint
 
-	call ahci_enable_cache
 	ret
 
 .port				db 0
@@ -599,7 +551,6 @@ ahci_read:
 	mov bl, [.port]
 	call ahci_stop
 
-	call ahci_disable_cache
 	movzx edi, [.port]
 	shl edi, 7
 	add edi, AHCI_ABAR_PORT_CONTROL
@@ -665,7 +616,6 @@ ahci_read:
 	mov ebx, [edi+AHCI_PORT_TASK_FILE]
 	mov [.task_file], bl
 
-	call ahci_enable_cache
 	mov al, 0
 	mov ah, [.task_file]
 	ret
@@ -681,8 +631,6 @@ ahci_read:
 
 	mov bl, [.port]
 	call ahci_stop
-
-	call ahci_enable_cache
 
 	mov esi, .error_msg
 	call kprint
@@ -719,8 +667,6 @@ ahci_read:
 	ret
 
 .memory_error:
-	call ahci_enable_cache
-
 	mov esi, .memory_error_msg
 	call kprint
 	mov eax, [.buffer]
@@ -745,7 +691,7 @@ align 4
 .error_msg3		db "; command 0x",0
 .error_msg4		db "; LBA 0x",0
 .error_msg5		db "; count 0x",0
-.memory_error_msg	db "ahci: attempted to write to non-present page (0x",0
+.memory_error_msg	db "ahci: attempted to read to non-present page (0x",0
 .memory_error_msg2	db ")",10,0
 
 ; ahci_write:
@@ -853,7 +799,6 @@ ahci_write:
 	mov bl, [.port]
 	call ahci_stop
 
-	call ahci_disable_cache
 	movzx edi, [.port]
 	shl edi, 7
 	add edi, AHCI_ABAR_PORT_CONTROL
@@ -919,7 +864,6 @@ ahci_write:
 	mov ebx, [edi+AHCI_PORT_TASK_FILE]
 	mov [.task_file], bl
 
-	call ahci_enable_cache
 	mov al, 0
 	mov ah, [.task_file]
 	ret
@@ -935,8 +879,6 @@ ahci_write:
 
 	mov bl, [.port]
 	call ahci_stop
-
-	call ahci_enable_cache
 
 	mov esi, .error_msg
 	call kprint
@@ -973,8 +915,6 @@ ahci_write:
 	ret
 
 .memory_error:
-	call ahci_enable_cache
-
 	mov esi, .memory_error_msg
 	call kprint
 	mov eax, [.buffer]
@@ -999,7 +939,7 @@ align 4
 .error_msg3		db "; command 0x",0
 .error_msg4		db "; LBA 0x",0
 .error_msg5		db "; count 0x",0
-.memory_error_msg	db "ahci: attempted to read from non-present page (0x",0
+.memory_error_msg	db "ahci: attempted to write from non-present page (0x",0
 .memory_error_msg2	db ")",10,0
 
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
