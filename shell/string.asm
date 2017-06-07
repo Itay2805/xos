@@ -292,11 +292,11 @@ update_time:
 .quit:
 	ret
 
-.hour			db 0
-.minute			db 0
+.hour			db 0xFF
+.minute			db 0xFF
 .hour_old		db 0
 .minute_old		db 0
-.second			db 0
+.second			db 0xFF
 .second_old		db 0
 .changed		db 0
 

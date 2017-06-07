@@ -14,8 +14,8 @@ task_time			dd 0
 ; Initialize the PIT
 align 64
 pit_init:
-	mov esi, .msg
-	call kprint
+	;mov esi, .msg
+	;call kprint
 
 	; install IRQ handler
 	mov al, IRQ_BASE+0x00	; irq0
@@ -47,7 +47,6 @@ pit_init:
 ; PIT IRQ Handler
 align 64
 pit_irq:
-	cli
 	pusha
 
 	inc [timer_ticks]

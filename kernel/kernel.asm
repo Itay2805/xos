@@ -256,6 +256,7 @@ kmain32:
 	call tasking_init
 	call acpi_init
 	call acpi_aml_init
+	call cmos_init
 	;call apic_init
 	call pci_init
 	call usb_init

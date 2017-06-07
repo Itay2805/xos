@@ -17,6 +17,24 @@ CMOS_REGISTER_DEFAULT_CENTURY	= 0x32
 
 cmos_century			db CMOS_REGISTER_DEFAULT_CENTURY	; should read this from acpi fadt..
 
+; cmos_init:
+; Initializes the CMOS
+
+cmos_init:
+	; read century register from ACPI FADT
+	mov al, [acpi_fadt.century]
+	cmp al, 0
+	je .default_century
+
+	mov [cmos_century], al
+	jmp .done
+
+.default_century:
+	mov [cmos_century], CMOS_REGISTER_DEFAULT_CENTURY
+
+.done:
+	ret
+
 ; bcd_byte_to_dec:
 ; Converts a BCD byte to a decimal integer
 ; In\	AL = BCD
@@ -69,12 +87,12 @@ cmos_write:
 
 	ret
 
-; cmos_get_time:
-; Returns the current time
+; cmos_read_time:
+; Returns the current time from the CMOS chip
 ; In\	Nothing
 ; Out\	AH:AL:BL = Hours:Minutes:Seconds
 
-cmos_get_time:
+cmos_read_time:
 	mov cl, CMOS_REGISTER_SECOND
 	call cmos_read
 	call bcd_byte_to_dec
@@ -137,5 +155,85 @@ cmos_get_time:
 .second			db 0
 .hour_bcd		db 0
 
+; cmos_read_date:
+; Reads the date from the CMOS chip
+; In\	Nothing
+; Out\	CL/CH/DX = Day/Month/Year
+
+cmos_read_date:
+	mov cl, CMOS_REGISTER_DAY
+	call cmos_read
+	call bcd_byte_to_dec
+	mov [.day], al
+
+	mov cl, CMOS_REGISTER_MONTH
+	call cmos_read
+	call bcd_byte_to_dec
+	mov [.month], al
+
+	mov cl, CMOS_REGISTER_YEAR
+	call cmos_read
+	call bcd_byte_to_dec
+	and ax, 0xFF
+	mov [.year], ax
+
+	mov cl, [cmos_century]
+	call cmos_read
+	call bcd_byte_to_dec
+	and eax, 0xFF
+	mov ebx, 100		; century
+	mul ebx
+	add [.year], ax
+
+	mov cl, [.day]
+	mov ch, [.month]
+	mov dx, [.year]
+
+	ret
+
+.day			db 0
+.month			db 0
+.year			dw 0
+
+; cmos_get_time:
+; Returns current time
+; In\	Nothing
+; Out\	AH:AL:BL = Hours:Minutes:Seconds
+; Out\	CL/CH/DX = Day/Month/Year
+
+cmos_get_time:
+	mov cl, CMOS_REGISTER_STATUS_A
+	call cmos_read
+	test al, 0x80			; update in progress?
+	jnz .return
+
+	call cmos_read_time
+	mov [.hour], ah
+	mov [.minute], al
+	mov [.second], bl
+
+	call cmos_read_date
+	mov [.day], cl
+	mov [.month], ch
+	mov [.year], dx
+
+.return:
+	mov ah, [.hour]
+	mov al, [.minute]
+	mov bl, [.second]
+
+	mov cl, [.day]
+	mov ch, [.month]
+	mov dx, [.year]
+
+	ret
+
+.hour			db 0
+.minute			db 0
+.second			db 0
+
+.day			db 0
+.month			db 0
+.year			dw 0
 
 
