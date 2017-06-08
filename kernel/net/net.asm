@@ -255,10 +255,14 @@ net_send:
 	cmp eax, 0
 	je .success
 
+	mov edx, eax
+	push edx
+
 	mov eax, STD_DRIVER_RESET
 	mov ebp, [net_entry]
 	call ebp
 
+	pop edx
 	jmp .send_again
 
 .success:
@@ -269,7 +273,7 @@ net_send:
 	ret
 
 .give_up:
-	push eax
+	push edx
 
 	mov eax, [.packet]
 	call kfree

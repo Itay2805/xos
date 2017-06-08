@@ -68,13 +68,20 @@ NET_GET_MAC			= 0x0012
 
 	include			"i8254x/driver.asm"
 	include			"i8254x/string.asm"
+	include			"i8254x/registers.asm"
 
 ; main:
 ; Driver entry point
+; In\	EAX = Request code
+; In\	EBX, ECX, EDX, ESI, EDI = Parameters 1, 2, 3, 4, 5
+; Out\	EAX = Returned status
 
 main:
-	cmp eax, STD_DRIVER_INIT
+	cmp eax, STD_DRIVER_INIT	; detect/initialize?
 	je driver_init
+
+	cmp eax, STD_DRIVER_RESET	; reset?
+	je driver_reset
 
 	push eax
 
@@ -149,19 +156,80 @@ driver_init:
 	mov ebp, XOS_KPRINT
 	int 0x61
 
+	; map the memory
+	mov ebp, XOS_PCI_MAP_MEMORY
+	mov al, [pci_bus]
+	mov ah, [pci_slot]
+	mov bl, [pci_function]
+	mov dl, 0		; BAR0
+	int 0x61
+
+	cmp eax, 0
+	je .memory_error
+
+	; enable MMIO, busmaster DMA, disable interrupts
+	mov al, [pci_bus]
+	mov ah, [pci_slot]
+	mov bl, [pci_function]
+	mov bh, PCI_STATUS_COMMAND
+	mov ebp, XOS_PCI_READ
+	int 0x61
+
+	mov edx, eax
+	or edx, 0x406
+	mov al, [pci_bus]
+	mov ah, [pci_slot]
+	mov bl, [pci_function]
+	mov bh, PCI_STATUS_COMMAND
+	mov ebp, XOS_PCI_WRITE
+	int 0x61
+
+	; okay, we're finished
 	mov eax, 0
-	ret		; for now...
+	ret
 
 .next_device:
 	mov esi, [.tmp]
 	jmp .loop
 
+.memory_error:
+	mov esi, mmio_error_msg
+	mov ebp, XOS_KPRINT
+	int 0x61
+
 .no:
 	mov eax, 1
 	ret
 
-
+align 4
 .tmp				dd 0
+
+; driver_reset:
+; Resets the i8254x NIC
+; In\	Nothing
+; Out\	EAX = 0 on success
+
+driver_reset:
+	; for now...
+	mov eax, 1
+	ret
+
+	; disable all interrupts
+	mov edi, [mmio]
+	mov eax, 0xFFFFFFFF
+	mov [edi+I8254X_INTERRUPT_MASK_CLEAR], eax
+	mov [edi+I8254X_INTERRUPT_CAUSE], eax
+
+	; disable interrupt throttling
+	mov eax, 0
+	mov [edi+I8254X_INTERRUPT_THROTTLE], eax
+
+	; RX buffer 48 KB
+	mov eax, 48
+	mov [edi+I8254X_PACKET_ALLOCATION], eax
+
+	mov eax, 0
+	ret
 
 	; Data Area
 	newline			db 10,0
@@ -170,6 +238,7 @@ driver_init:
 
 	found_msg		db "i8254x: found device on PCI slot ",0
 	colon			db ":",0
+	mmio_error_msg		db "i8254x: unable to map PCI MMIO in virtual address space.",10,0
 
 	pci_bus			db 0
 	pci_slot		db 0
