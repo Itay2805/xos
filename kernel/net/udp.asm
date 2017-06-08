@@ -6,7 +6,7 @@ use32
 
 ; User Datagram Protocol
 UDP_PROTOCOL_TYPE		= 0x11		; for IP header
-UDP_PSUEDO_HEADER_SIZE		= 11
+UDP_PSUEDO_HEADER_SIZE		= 12
 UDP_HEADER_SIZE			= 8
 
 ; udp_send:
@@ -41,6 +41,8 @@ udp_send:
 	stosd
 	mov eax, [.destination]
 	stosd
+	mov al, 0
+	stosb
 	mov al, UDP_PROTOCOL_TYPE
 	stosb
 	mov eax, [.size]
@@ -79,7 +81,7 @@ udp_send:
 	call net_checksum
 
 	pop edi
-	;xchg al, ah
+	xchg al, ah
 	stosw
 
 	; send the packet!
