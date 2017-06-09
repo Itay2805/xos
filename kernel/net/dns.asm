@@ -7,7 +7,7 @@ use32
 ; Domain Name System..
 DNS_HEADER_SIZE				= 12
 DNS_SOURCE_PORT				= 32768
-DNS_DEST_PORT				= 53
+DNS_DESTINATION_PORT			= 53
 
 align 2
 dns_id					dw "XS"
@@ -105,10 +105,10 @@ dns_request:
 	mov [.packet_size], edi
 
 	; okay, send the packet by UDP
-	mov eax, dword[my_ip]		; my IP - we don't have an IP yet...
-	mov ebx, dword[dns_ip]		; destination IP - we don't have the router's IP yet...
+	mov eax, dword[my_ip]		; my IP
+	mov ebx, dword[dns_ip]		; destination IP - DNS server
 	mov ecx, [.packet_size]
-	mov edx, (DNS_DEST_PORT shl 16) or DNS_SOURCE_PORT
+	mov edx, (DNS_DESTINATION_PORT shl 16) or DNS_SOURCE_PORT
 	mov esi, [.packet]
 	mov edi, router_mac
 	call udp_send
@@ -158,7 +158,7 @@ dns_request:
 	add esi, IP_HEADER_SIZE			; to TCP/UDP header
 	mov ax, [esi]		; the reply source must be our destination
 	xchg al, ah
-	cmp ax, DNS_DEST_PORT
+	cmp ax, DNS_DESTINATION_PORT
 	jne .receive_start
 
 	mov ax, [esi+2]		; and reply destination must be our source...

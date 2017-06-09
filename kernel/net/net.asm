@@ -101,12 +101,15 @@ net_init:
 	call kprint
 
 	call dhcp_init
+	call arp_gratuitous
+
 	ret
 
 .no_driver:
 	mov esi, .no_driver_msg
 	call kprint
 
+	mov [network_available], 0
 	ret
 
 .rtl8139_filename:		db "drivers/netio/rtl8139.sys",0
@@ -114,8 +117,6 @@ net_init:
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
-
-test_packet:			times 64 db 0
 
 ; net_checksum:
 ; Performs the network checksum on data
