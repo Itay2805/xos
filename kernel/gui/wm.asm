@@ -699,9 +699,20 @@ wm_redraw:
 
 	; the window title
 	mov esi, [.title]
+	call strlen
+
 	mov cx, [.x]
+	mov dx, cx
+	add dx, [.width]
+	add dx, [window_border_x_min]
+	add cx, dx
+	shr cx, 1
+
+	shl ax, 2			; mul 4
+	sub cx, ax
+
 	mov dx, [.y]
-	add cx, [window_title_x]
+	;add cx, [window_title_x]
 	add dx, [window_title_y]
 	call print_string_transparent
 
@@ -713,7 +724,8 @@ wm_redraw:
 	add ax, [window_canvas_x]
 	add bx, [window_canvas_y]
 	mov edx, [.framebuffer]
-	call blit_buffer_no_transparent
+	mov ecx, WINDOW_TRANSPARENT_COLOR
+	call blit_buffer
 
 .next:
 	inc [.handle]
@@ -788,9 +800,20 @@ wm_redraw:
 
 	; the window title
 	mov esi, [.title]
+	call strlen
+
 	mov cx, [.x]
+	mov dx, cx
+	add dx, [.width]
+	add dx, [window_border_x_min]
+	add cx, dx
+	shr cx, 1
+
+	shl ax, 2			; mul 4
+	sub cx, ax
+
 	mov dx, [.y]
-	add cx, [window_title_x]
+	;add cx, [window_title_x]
 	add dx, [window_title_y]
 	call print_string_transparent
 
@@ -802,7 +825,8 @@ wm_redraw:
 	add ax, [window_canvas_x]
 	add bx, [window_canvas_y]
 	mov edx, [.framebuffer]
-	call blit_buffer_no_transparent
+	mov ecx, WINDOW_TRANSPARENT_COLOR
+	call blit_buffer
 
 .done:
 	;mov [wm_dirty], 0
