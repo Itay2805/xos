@@ -1244,8 +1244,16 @@ wm_read_event:
 
 wm_kill:
 	cli
+
+	cmp [active_window], eax
+	je .clear_active
+
+	jmp .work
+
+.clear_active:
 	mov [active_window], -1
 
+.work:
 	shl eax, 7
 	add eax, [window_handles]
 	test word[eax], WM_PRESENT
@@ -1285,6 +1293,29 @@ wm_kill_all:
 .done:
 	ret
 
-.handle		dd 0
+align 4
+.handle				dd 0
+
+; wm_close_active_window:
+; Sends the focused window a close event - used by keyboard event Alt+F4
+
+wm_close_active_window:
+	cmp [active_window], -1
+	je .quit
+
+	mov eax, [active_window]
+	shl eax, 7
+	add eax, [window_handles]
+	test word[eax], WM_PRESENT
+	jz .quit
+
+	or word[eax+WINDOW_EVENT], WM_CLOSE	; send a close event..
+
+.quit:
+	ret
+
+
+
+
 
 

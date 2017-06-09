@@ -23,11 +23,14 @@ LEFT_SHIFT			= 0x36
 RIGHT_SHIFT			= 0x2A
 CAPS_LOCK			= 0x3A
 NUM_LOCK			= 0x45
+ALT				= 0x38
+F4_KEY				= 0x3E
 
 ; Keyboard Status Bitfield
 KBD_STATUS_SHIFT		= 0x01
 KBD_STATUS_CAPS_LOCK		= 0x02
 KBD_STATUS_NUM_LOCK		= 0x04
+KBD_STATUS_ALT			= 0x08
 
 ; PS/2 Mouse Commands
 PS2_MOUSE_COMMAND		= 0xD4
@@ -303,12 +306,19 @@ ps2_kbd_irq:
 	cmp al, NUM_LOCK		; num lock?
 	je .toggle_num_lock
 
+	cmp al, ALT			; alt?
+	je .alt
+
+	cmp al, ALT or 0x80		; alt release?
+	je .alt_release
+
+	cmp al, F4_KEY			; F4?
+	je .f4
+
 	cmp al, 0xE0
 	je .escape_sequence
 
 	; now the key is most likely a letter or number...
-	; soon I'll add support for NumLock and the numpad
-	; but for now, we'll assume it's a "printable" character
 	test al, 0x80		; key released?
 	jnz .finish		; ignore it
 
@@ -429,6 +439,21 @@ ps2_kbd_irq:
 	mov al, [kbd_leds]
 	or al, PS2_KBD_NUM_LOCK
 	call ps2_kbd_set_leds
+	jmp .finish
+
+.alt:
+	or [kbd_status], KBD_STATUS_ALT
+	jmp .finish
+
+.alt_release:
+	and [kbd_status], not KBD_STATUS_ALT
+	jmp .finish
+
+.f4:
+	test [kbd_status], KBD_STATUS_ALT
+	jz .finish
+
+	call wm_close_active_window		; send a close event..
 
 .finish:
 	mov al, 0x20
@@ -529,8 +554,8 @@ ps2_mouse_init:
 	; demand the mouse ID again
 	mov al, PS2_MOUSE_GET_ID
 	call ps2_mouse_send
-	cmp al, 0xFA
-	jne .no_mouse
+	;cmp al, 0xFA
+	;jne .no_mouse
 
 	call wait_ps2_read
 	in al, 0x60
@@ -540,14 +565,14 @@ ps2_mouse_init:
 	; disable mouse packets
 	mov al, PS2_MOUSE_DISABLE
 	call ps2_mouse_send
-	cmp al, 0xFA
-	jne .no_mouse
+	;cmp al, 0xFA
+	;jne .no_mouse
 
 	; set default values
 	mov al, PS2_MOUSE_DEFAULTS
 	call ps2_mouse_send
-	cmp al, 0xFA
-	jne .no_mouse
+	;cmp al, 0xFA
+	;jne .no_mouse
 
 	; set resolution
 	;mov al, PS2_MOUSE_SET_RESOLUTION
