@@ -116,14 +116,14 @@ dhcp_init:
 	mov al, 4
 	stosb
 
-	; 192.168.1.150
+	; start from 192.168.1.2
 	mov al, 192
 	stosb
 	mov al, 168
 	stosb
 	mov al, 1
 	stosb
-	mov al, 150
+	mov al, 2
 	stosb
 
 	; parameters requests
@@ -173,12 +173,12 @@ dhcp_init:
 	; receive a packet in the same buffer
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], 32
+	cmp [.packet_count], NET_TIMEOUT
 	jge .error
 
 .receive_loop:
 	inc [.wait_loops]
-	cmp [.wait_loops], 0xFFFF
+	cmp [.wait_loops], NET_TIMEOUT
 	jg .error
 
 	mov edi, [.packet]
@@ -283,6 +283,9 @@ dhcp_init:
 	cmp al, DHCP_OPTION_ROUTER
 	je .router
 
+	cmp al, DHCP_OPTION_DOMAIN_NAME_SERVER
+	je .dns
+
 	movzx eax, byte[esi]		; length
 	add esi, eax
 	inc esi
@@ -298,7 +301,23 @@ dhcp_init:
 	inc esi
 	jmp .options_loop
 
+.dns:
+	mov eax, [esi+1]
+	mov dword[dns_ip], eax
+
+	movzx eax, byte[esi]
+	add esi, eax
+	inc esi
+	jmp .options_loop
+
 .finish:
+	; copy the router MAC address
+	mov esi, [.packet]
+	add esi, 6
+	mov edi, router_mac
+	mov ecx, 6
+	rep movsb
+
 	mov esi, .ip_msg
 	call kprint
 	movzx eax, byte[my_ip]
@@ -345,9 +364,33 @@ dhcp_init:
 	mov esi, newline
 	call kprint
 
+	mov esi, .dns_msg
+	call kprint
+	movzx eax, byte[dns_ip]
+	call int_to_string
+	call kprint
+	mov esi, .dot
+	call kprint
+	movzx eax, byte[dns_ip+1]
+	call int_to_string
+	call kprint
+	mov esi, .dot
+	call kprint
+	movzx eax, byte[dns_ip+2]
+	call int_to_string
+	call kprint
+	mov esi, .dot
+	call kprint
+	movzx eax, byte[dns_ip+3]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+
 	mov eax, [.packet]
 	call kfree
 
+	mov [network_available], 1	; indicate that we are connected to the network
 	ret
 
 .error:
@@ -370,6 +413,7 @@ align 4
 .ip_msg					db "net-dhcp: client IP is ",0
 .dot					db ".",0
 .router_msg				db ", router IP is ",0
+.dns_msg				db "net-dhcp: DNS server is ",0
 
 
 

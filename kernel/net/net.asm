@@ -4,6 +4,8 @@
 
 use32
 
+NET_TIMEOUT			= 0x80000		; times to poll..
+
 ETHERNET_HEADER_SIZE		= 14			; size in bytes
 
 ; Network-Specific Driver Requests
@@ -11,16 +13,25 @@ NET_SEND_PACKET			= 0x0010
 NET_RECEIVE_PACKET		= 0x0011
 NET_GET_MAC			= 0x0012
 
+network_available		db 0
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
 router_mac:			times 6 db 0
 router_ip:			times 4 db 0
+dns_ip:				times 4 db 0		; DNS server
 broadcast_mac:			times 6 db 0xFF		; FF:FF:FF:FF:FF:FF
+
+align 4
+netstat:
+	.sent_bytes		dd 0
+	.received_bytes		dd 0
 
 ; net_init:
 ; Initializes the network stack
 
 net_init:
+	mov [network_available], 0
+
 	; TO-DO: make a configuration file which tells which driver to load
 	; TO-DO: auto-detect network cards and load an appropriate driver or give information
 	mov esi, .rtl8139_filename
@@ -90,7 +101,6 @@ net_init:
 	call kprint
 
 	call dhcp_init
-
 	ret
 
 .no_driver:
@@ -269,6 +279,9 @@ net_send:
 	mov eax, [.packet]
 	call kfree
 
+	mov eax, [.final_size]
+	add [netstat.sent_bytes], eax
+
 	mov eax, 0
 	ret
 
@@ -310,6 +323,7 @@ net_receive:
 	mov ebp, [net_entry]
 	call ebp
 
+	add [netstat.received_bytes], eax
 	ret
 
 
