@@ -265,7 +265,12 @@ uhci_reset_controller:
 	add dx, UHCI_PORT1
 	in ax, dx
 	or ax, UHCI_PORT_RESET or UHCI_PORT_ENABLE
+	and ax, not (3 shl 10)
 	and ax, not (1 shl 12)
+	and ax, not (1 shl 8)
+	;and ax, not (1 shl 7)
+	and ax, not (3 shl 4)
+	and ax, not 1
 	out dx, ax
 	call iowait
 
@@ -273,7 +278,12 @@ uhci_reset_controller:
 	add dx, UHCI_PORT2
 	in ax, dx
 	or ax, UHCI_PORT_RESET or UHCI_PORT_ENABLE
+	and ax, not (3 shl 10)
 	and ax, not (1 shl 12)
+	and ax, not (1 shl 8)
+	;and ax, not (1 shl 7)
+	and ax, not (3 shl 4)
+	and ax, not 1
 	out dx, ax
 	call iowait
 
@@ -287,7 +297,12 @@ uhci_reset_controller:
 	in ax, dx
 	or ax, UHCI_PORT_ENABLE
 	and ax, not UHCI_PORT_RESET
+	and ax, not (3 shl 10)
 	and ax, not (1 shl 12)
+	and ax, not (1 shl 8)
+	;and ax, not (1 shl 7)
+	and ax, not (3 shl 4)
+	and ax, not 1
 	out dx, ax
 	call iowait
 
@@ -297,12 +312,23 @@ uhci_reset_controller:
 	in ax, dx
 	or ax, UHCI_PORT_ENABLE
 	and ax, not UHCI_PORT_RESET
+	and ax, not (3 shl 10)
 	and ax, not (1 shl 12)
+	and ax, not (1 shl 8)
+	;and ax, not (1 shl 7)
+	and ax, not (3 shl 4)
+	and ax, not 1
 	out dx, ax
 	call iowait
 
 	mov eax, 10
 	call pit_sleep
+
+	mov dx, [.io]
+	add dx, UHCI_STATUS
+	mov ax, 0x3F
+	out dx, ax
+	call iowait
 
 	ret
 
@@ -549,7 +575,7 @@ uhci_setup:
 
 	mov dx, [.io]
 	in ax, dx
-	mov ax, UHCI_COMMAND_RUN
+	or ax, UHCI_COMMAND_RUN
 	out dx, ax
 	;call iowait
 
@@ -791,7 +817,7 @@ uhci_interrupt:
 
 	mov dx, [.io]
 	in ax, dx
-	mov ax, UHCI_COMMAND_RUN
+	or ax, UHCI_COMMAND_RUN
 	out dx, ax
 	;call iowait
 

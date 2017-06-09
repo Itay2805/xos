@@ -457,12 +457,7 @@ usb_assign_addresses:
 	je .bad_string
 
 	; print manufacturer name and then product
-	push edi
-	call kprint
-	mov esi, .space
-	call kprint
-	pop esi
-
+	mov esi, edi
 	call kprint
 	mov esi, newline
 	call kprint
