@@ -21,6 +21,12 @@ all:
 	fasm fasm/source/xos/fasm.asm out/fasm.exe
 	fasm i8254x/i8254x.asm out/i8254x.sys
 
+	fasm libxos/src/interface.asm libxos/interface.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone libxos/src/init.c -o libxos/init.o
+
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone helloc/helloc.c -o helloc/helloc.o
+	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld libxos/interface.o libxos/init.o helloc/*.o -o out/helloc.exe
+
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
 	dd if=out/rootnew.bin conv=notrunc bs=512 seek=64 of=disk.hdd
@@ -40,6 +46,7 @@ all:
 	dd if=out/rtl8139.sys conv=notrunc bs=512 seek=1302 of=disk.hdd
 	dd if=out/fasm.exe conv=notrunc bs=512 seek=1400 of=disk.hdd
 	dd if=out/i8254x.sys conv=notrunc bs=512 seek=1311 of=disk.hdd
+	dd if=out/helloc.exe conv=notrunc bs=512 seek=1801 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
