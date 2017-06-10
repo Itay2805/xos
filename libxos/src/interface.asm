@@ -31,8 +31,8 @@ main_stub:
 	extrn xos_main
 	call xos_main
 
-	extrn libxos_data
-	mov eax, [libxos_data]
+	extrn libxos_windows
+	mov eax, [libxos_windows]
 	mov ebp, XOS_FREE
 	int 0x60
 

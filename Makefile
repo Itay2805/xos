@@ -1,7 +1,7 @@
 
 all:
 	if [ ! -d "out" ]; then mkdir out; fi
-	if [ ! -d "out/xfs" ]; then mkdir out/xfs; fi
+	if [ ! -d "out/libxos" ]; then mkdir out/libxos; fi
 	dd if=/dev/zero bs=512 count=71568 of=disk.hdd
 	fasm kernel/boot/mbr.asm out/mbr.bin
 	fasm kernel/boot/boot_hdd.asm out/boot_hdd.bin
@@ -21,11 +21,13 @@ all:
 	fasm fasm/source/xos/fasm.asm out/fasm.exe
 	fasm i8254x/i8254x.asm out/i8254x.sys
 
-	fasm libxos/src/interface.asm libxos/interface.o
-	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone libxos/src/init.c -o libxos/init.o
+	fasm libxos/src/interface.asm out/libxos/interface.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone libxos/src/init.c -o out/libxos/init.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone libxos/src/window.c -o out/libxos/window.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone libxos/src/label.c -o out/libxos/label.o
 
-	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone helloc/helloc.c -o helloc/helloc.o
-	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld libxos/interface.o libxos/init.o helloc/*.o -o out/helloc.exe
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone helloc/helloc.c -o out/helloc.o
+	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/interface.o out/libxos/init.o out/libxos/window.o out/libxos/label.o out/helloc.o -o out/helloc.exe
 
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
@@ -61,7 +63,7 @@ runohci:
 	qemu-system-i386 -m 128 -vga std -serial stdio -hda disk.hdd -device pci-ohci,id=usbohci -device usb-mouse,bus=usbohci.0 -device usb-kbd,bus=usbohci.0 -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
 
 clean:
-	if [ -d "out/xfs" ]; then rm out/xfs/*; rmdir out/xfs; fi
+	if [ -d "out/libxos" ]; then rm out/libxos/*; rmdir out/libxos; fi
 	if [ -d "out" ]; then rm out/*; rmdir out; fi
 
 

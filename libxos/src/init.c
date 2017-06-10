@@ -9,11 +9,11 @@
 
 #include <xos.h>
 
-void *libxos_data;
+libxos_internal_window *libxos_windows;
 
 void libxos_init()
 {
-	libxos_data = malloc(256*8);
+	libxos_windows = malloc(LIBXOS_MAX_WINDOWS * sizeof(libxos_internal_window));
 }
 
 
