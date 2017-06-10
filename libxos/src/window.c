@@ -108,7 +108,6 @@ void xos_redraw(xos_window window)
 
 	loop_again:
 		components += 256;
-		continue;
 	}
 
 	k_redraw(libxos_windows[window].k_window);

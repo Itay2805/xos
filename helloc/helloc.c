@@ -8,17 +8,24 @@
 
 int xos_main()
 {
-	// create a window
 	xos_window window;
+	xos_event_t event;
+
+	// create a window
 	window = xos_create_window(64, 64, 256, 128, 0, "Hello world");
 
+	// make a label component
 	xos_create_label(window, 8, 8, 0xFFFFFF, "Hello, world!\nThis program is written in C.\nThis is a label component.\n\nAbove is an empty line.");
+
+	// redraw the window
 	xos_redraw(window);
 
 	// hang until the window closes
-	while((k_read_event(libxos_windows[window].k_window) & WM_CLOSE) == 0)
+	while(1)
 	{
-		k_yield();
+		xos_poll_event(&event);
+		if(event.event_type == XOS_EVENT_CLOSE)
+			break;
 	}
 
 	return 0;

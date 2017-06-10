@@ -25,14 +25,23 @@
 #define OUTLINE_FOCUS			0x505060
 #define OUTLINE				0x383838
 
-// Window Events
-#define WM_LEFT_CLICK			0x0001
-#define WM_RIGHT_CLICK			0x0002
-#define WM_KEYPRESS			0x0004
-#define WM_CLOSE			0x0008
-#define WM_GOT_FOCUS			0x0010
-#define WM_LOST_FOCUS			0x0020
-#define WM_DRAG				0x0040
+// Kernel Events
+#define K_LEFT_CLICK			0x0001
+#define K_RIGHT_CLICK			0x0002
+#define K_KEYPRESS			0x0004
+#define K_CLOSE				0x0008
+#define K_GOT_FOCUS			0x0010
+#define K_LOST_FOCUS			0x0020
+#define K_DRAG				0x0040
+
+// Events
+#define XOS_EVENT_NONE			0
+#define XOS_EVENT_CLOSE			1
+#define XOS_EVENT_MOUSE_CLICK		2
+#define XOS_EVENT_KEYPRESS		3
+#define XOS_EVENT_GOT_FOCUS		4
+#define XOS_EVENT_LOST_FOCUS		5
+#define XOS_EVENT_DRAG			6
 
 typedef struct k_mouse_status
 {
@@ -51,15 +60,6 @@ typedef struct k_window
 	uint32_t title;		// 0E
 }__attribute__((packed)) k_window;
 
-typedef struct libxos_internal_window
-{
-	uint8_t present;
-	uint8_t lock;
-	int32_t k_window;
-	uint32_t color;
-	uint8_t *components;
-}__attribute__((packed)) libxos_internal_window;
-
 // Internal kernel functions - meant to be used internally by libxos
 extern int32_t k_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
 extern void k_yield();
@@ -73,7 +73,14 @@ extern void k_clear(int32_t window, uint32_t color);
 extern void *malloc(size_t size);
 extern void free(void *memory);
 
-extern libxos_internal_window *libxos_windows;
+typedef struct libxos_internal_window
+{
+	uint8_t present;
+	uint8_t lock;
+	int32_t k_window;
+	uint32_t color;
+	uint8_t *components;
+} libxos_internal_window;
 
 typedef int32_t xos_window;
 typedef int32_t xos_component;
@@ -85,9 +92,31 @@ typedef struct xos_label_t
 	int16_t y;
 	uint32_t color;
 	const char *text;
-}__attribute__((packed)) xos_label_t;
+} xos_label_t;
+
+typedef struct xos_mouse_event_t
+{
+	int16_t x;
+	int16_t y;
+} xos_mouse_event_t;
+
+typedef struct xos_kbd_event_t
+{
+	uint8_t character;
+	uint8_t scancode;
+} xos_kbd_event_t;
+
+typedef struct xos_event_t
+{
+	uint16_t event_type;
+	xos_window window;
+	xos_component component;
+	xos_mouse_event_t mouse_coords;
+	xos_kbd_event_t kbd;
+} xos_event_t;
 
 // These functions are meant for the user program
+extern libxos_internal_window *libxos_windows;
 extern xos_window xos_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
 extern void xos_lock(xos_window window);
 extern void xos_unlock(xos_window window);
@@ -95,6 +124,7 @@ extern void xos_redraw(xos_window window);
 extern xos_component xos_find_free_component(xos_window window);
 extern xos_component xos_create_label(xos_window window, int16_t x, int16_t y, uint32_t color, const char *text);
 extern void xos_redraw_label(xos_window window, xos_label_t *label);
+extern void xos_poll_event(xos_event_t *event);
 
 #endif
 
