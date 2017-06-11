@@ -85,15 +85,6 @@ typedef struct libxos_internal_window
 typedef int32_t xos_window;
 typedef int32_t xos_component;
 
-typedef struct xos_label_t
-{
-	uint8_t component_type;
-	int16_t x;
-	int16_t y;
-	uint32_t color;
-	const char *text;
-} xos_label_t;
-
 typedef struct xos_mouse_event_t
 {
 	int16_t x;
@@ -115,6 +106,28 @@ typedef struct xos_event_t
 	xos_kbd_event_t kbd;
 } xos_event_t;
 
+typedef struct xos_label_t
+{
+	uint8_t component_type;
+	int16_t x;
+	int16_t y;
+	uint32_t color;
+	const char *text;
+} xos_label_t;
+
+typedef struct xos_button_t
+{
+	uint8_t component_type;
+	int16_t x;
+	int16_t y;
+	char *text;
+} xos_button_t;
+
+extern size_t strlen(char *string);
+
+// These functions are meant for internal use by libXOS
+extern void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height, uint32_t color);
+
 // These functions are meant for the user program
 extern libxos_internal_window *libxos_windows;
 extern xos_window xos_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
@@ -122,9 +135,14 @@ extern void xos_lock(xos_window window);
 extern void xos_unlock(xos_window window);
 extern void xos_redraw(xos_window window);
 extern xos_component xos_find_free_component(xos_window window);
-extern xos_component xos_create_label(xos_window window, int16_t x, int16_t y, uint32_t color, const char *text);
-extern void xos_redraw_label(xos_window window, xos_label_t *label);
 extern void xos_poll_event(xos_event_t *event);
+extern void xos_check_event(xos_event_t *event);
+
+extern xos_component xos_create_label(xos_window window, int16_t x, int16_t y, uint32_t color, char *text);
+extern void xos_redraw_label(xos_window window, xos_label_t *label);
+
+extern xos_component xos_create_button(xos_window window, int16_t x, int16_t y, char *text);
+extern void xos_redraw_button(xos_window window, xos_button_t *button);
 
 #endif
 

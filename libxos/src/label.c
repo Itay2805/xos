@@ -13,7 +13,7 @@
 // xos_create_label:
 // Creates a label
 
-xos_component xos_create_label(xos_window window, int16_t x, int16_t y, uint32_t color, const char *text)
+xos_component xos_create_label(xos_window window, int16_t x, int16_t y, uint32_t color, char *text)
 {
 	xos_component component = xos_find_free_component(window);
 	if(component == -1)

@@ -12,10 +12,13 @@ int xos_main()
 	xos_event_t event;
 
 	// create a window
-	window = xos_create_window(64, 64, 256, 128, 0, "Hello world");
+	window = xos_create_window(64, 64, 256, 180, 0, "Hello world");
 
 	// make a label component
 	xos_create_label(window, 8, 8, 0xFFFFFF, "Hello, world!\nThis program is written in C.\nThis is a label component.\n\nAbove is an empty line.");
+
+	// and a button, just for showcase
+	xos_create_button(window, 8, 98, "Test Button");
 
 	// redraw the window
 	xos_redraw(window);

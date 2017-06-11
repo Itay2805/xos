@@ -106,11 +106,55 @@ void xos_redraw(xos_window window)
 		else if(components[0] == COMPONENT_LABEL)
 			xos_redraw_label(window, (xos_label_t*)components);
 
+		else if(components[0] == COMPONENT_BUTTON)
+			xos_redraw_button(window, (xos_button_t*)components);
+
 	loop_again:
 		components += 256;
 	}
 
 	k_redraw(libxos_windows[window].k_window);
+}
+
+// xos_fill_rect:
+// Fills a solid rectangle
+
+void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height, uint32_t color)
+{
+	if(libxos_windows[window].present != 1)
+		return;
+
+	if(!width || !height)
+		return;
+
+	// get window info
+	k_window window_info;
+	k_get_window(libxos_windows[window].k_window, &window_info);
+
+	if(x + width > window_info.width || y + height > window_info.height)
+		return;
+
+	// get pixel offset
+	uint32_t *canvas;
+	canvas = (uint32_t*)k_pixel_offset(libxos_windows[window].k_window, x, y);
+
+	int16_t x2, y2;
+
+	x2 = 0;
+	y2 = 0;
+
+	while(y2 < height)
+	{
+		while(x2 < width)
+		{
+			canvas[x2] = color;
+			x2++;
+		}
+
+		x2 = 0;
+		y2++;
+		canvas += window_info.width;
+	}
 }
 
 
