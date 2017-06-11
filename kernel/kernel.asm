@@ -257,7 +257,6 @@ kmain32:
 	call acpi_init
 	call acpi_aml_init
 	call cmos_init
-	;call apic_init
 	call pci_init
 	call usb_init
 	call blkdev_init
@@ -303,7 +302,6 @@ idle_process:
 	include "kernel/x86/early.asm"		; early routines that depends on bios
 	include "kernel/x86/modes.asm"		; TSS, GDT, IDT
 	include "kernel/x86/pic.asm"		; PIC driver
-	include "kernel/x86/apic.asm"		; APIC driver
 
 	; Firmware
 	include "kernel/firmware/vbe.asm"	; VBE 2.0 driver

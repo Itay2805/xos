@@ -32,9 +32,17 @@ pic_init:
 	mov ebp, pic2_spurious
 	call install_isr
 
+	; mask everything
+	mov al, 0xFF
+	out 0x21, al
+	out 0xA1, al
+	call iowait
+	call iowait
+	call iowait
+
 	; unmask the cascade IRQ so that IRQs from the slave PIC can happen
 	mov al, 2
-	call pic_unmask
+	call irq_unmask
 
 	sti
 
@@ -158,12 +166,12 @@ pic_remap:
 .data1				db 0
 .data2				db 0
 
-; pic_mask:
+; irq_mask:
 ; Masks an IRQ
 ; In\	AL = IRQ number
 ; Out\	Nothing
 
-pic_mask:
+irq_mask:
 	cmp al, 8
 	jge .slave
 
@@ -190,12 +198,12 @@ pic_mask:
 
 	ret
 
-; pic_unmask:
+; irq_unmask:
 ; Unmasks a PIC IRQ
 ; In\	AL = IRQ
 ; Out\	Nothing
 
-pic_unmask:
+irq_unmask:
 	cmp al, 8
 	jge .slave
 

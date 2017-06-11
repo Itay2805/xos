@@ -3,7 +3,7 @@ It is divided into subdirectories that are sorted out logically:
 
   acpi/       Contains an ACPI implementation.
   boot/       Contains the kernel loader.
-  blkdev/     "BLocK DEVices", contains device drivers for storage devices, including ATA and AHCI.
+  blkdev/     Contains device drivers for storage devices, including ATA and AHCI.
   firmware/   Contains firmware drivers, such as PCI and (someday) HPET.
   fonts/      Contains bitmap fonts for use by the kernel.
   fs/         Contains low-level filesystem drivers.
@@ -11,7 +11,9 @@ It is divided into subdirectories that are sorted out logically:
   iodev/      Contains device drivers for I/O devices, like the mouse and keyboard.
   keymaps/    Contains scancode and ASCII character mapping tables.
   mm/         Contains the low-level memory manager.
+  net/        Contains a networking stack.
   tasking/    Contains the scheduler, system calls and other multitasking things.
   usb/        Contains USB host and device drivers.
-  x86/        Contains things specific to x86, such as PIC, APIC, CPU modes, etc...
+  x86/        Contains things specific to x86, such as PIC, CPU modes, etc...
   misc/       Contains things that don't fit into any category from the above.
+
