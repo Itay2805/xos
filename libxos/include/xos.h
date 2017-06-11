@@ -123,8 +123,6 @@ typedef struct xos_button_t
 	char *text;
 } xos_button_t;
 
-extern size_t strlen(char *string);
-
 // These functions are meant for internal use by libXOS
 extern void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height, uint32_t color);
 

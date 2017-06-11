@@ -11,7 +11,7 @@ format elf
 
 include				"libxos/src/xos.asm"
 
-section ".text"
+section ".header"
 public __linker_entry
 __linker_entry:
 
@@ -22,6 +22,7 @@ application_header:
 	.reserved0		dq 0
 	.reserved1		dq 0
 
+section ".text"
 main_stub:
 	mov ebp, esp
 

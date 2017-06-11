@@ -8,6 +8,7 @@
  */
 
 #include <xos.h>
+#include <string.h>
 #include "component.h"
 
 // xos_create_button:

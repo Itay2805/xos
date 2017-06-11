@@ -4,14 +4,19 @@ ENTRY(__linker_entry)
 SECTIONS
 {
 	. = 0x8000000;
+	.header : {
+		*(.header)
+		. = ALIGN(4);
+	}
+
 	.text : {
 		*(.text)
-		. = ALIGN(4096);
+		. = ALIGN(4);
 	}
 	.data : {
 		*(.data)
 		*(.rodata)
-		. = ALIGN(4096);
+		. = ALIGN(4);
 	}
 	__bss_start = .;
 	.bss : {
