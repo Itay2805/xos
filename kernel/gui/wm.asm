@@ -1179,6 +1179,7 @@ wm_mouse_event:
 	jz .done
 
 	or word[eax+WINDOW_EVENT], WM_DRAG
+	jmp .no_wm
 
 .done:
 	call wm_redraw
