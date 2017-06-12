@@ -564,27 +564,27 @@ ps2_mouse_init:
 	mov [mouse_id], 0
 
 	; try to enable scrollwheel mouse
-	mov al, PS2_MOUSE_SET_SPEED
-	call ps2_mouse_send
-	mov al, 200
-	call ps2_mouse_send
-	mov al, PS2_MOUSE_SET_SPEED
-	call ps2_mouse_send
-	mov al, 100
-	call ps2_mouse_send
-	mov al, PS2_MOUSE_SET_SPEED
-	call ps2_mouse_send
-	mov al, 80
-	call ps2_mouse_send
+	;mov al, PS2_MOUSE_SET_SPEED
+	;call ps2_mouse_send
+	;mov al, 200
+	;call ps2_mouse_send
+	;mov al, PS2_MOUSE_SET_SPEED
+	;call ps2_mouse_send
+	;mov al, 100
+	;call ps2_mouse_send
+	;mov al, PS2_MOUSE_SET_SPEED
+	;call ps2_mouse_send
+	;mov al, 80
+	;call ps2_mouse_send
 
 	; check if it worked
-	mov al, PS2_MOUSE_GET_ID
-	call ps2_mouse_send
+	;mov al, PS2_MOUSE_GET_ID
+	;call ps2_mouse_send
 
-	call wait_ps2_read
-	in al, 0x60
+	;call wait_ps2_read
+	;in al, 0x60
 
-	mov [mouse_id], al
+	;mov [mouse_id], al
 
 	;mov esi, .mouse_id_msg
 	;call kprint
@@ -730,8 +730,8 @@ ps2_mouse_irq:
 .y:
 	mov [mouse_packet.y], al
 
-	cmp [mouse_id], 3
-	je .wait_scroll
+	cmp [mouse_id], 0
+	jne .wait_scroll
 
 	jmp .handle_packet
 

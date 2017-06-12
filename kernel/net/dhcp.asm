@@ -24,6 +24,8 @@ DHCP_OPTION_END				= 255
 DHCP_SOURCE_PORT			= 68
 DHCP_DESTINATION_PORT			= 67
 
+DHCP_TIMEOUT				= 0x80000
+
 dhcp_transaction_id			dd "XOS "
 
 ; dhcp_init:
@@ -173,12 +175,12 @@ dhcp_init:
 	; receive a packet in the same buffer
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], NET_TIMEOUT
+	cmp [.packet_count], DHCP_TIMEOUT
 	jge .error
 
 .receive_loop:
 	inc [.wait_loops]
-	cmp [.wait_loops], NET_TIMEOUT
+	cmp [.wait_loops], DHCP_TIMEOUT
 	jg .error
 
 	mov edi, [.packet]

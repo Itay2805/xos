@@ -100,7 +100,16 @@ net_init:
 	mov esi, newline
 	call kprint
 
+.do_dhcp:
+	inc [.dhcp_tries]
+	cmp [.dhcp_tries], 4
+	jge .dhcp_done
+
 	call dhcp_init
+	cmp [network_available], 1
+	jne .do_dhcp
+
+.dhcp_done:
 	call arp_gratuitous
 
 	ret
@@ -117,6 +126,9 @@ net_init:
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0
 .mac_msg			db "net: MAC address is ",0
 .colon				db ":",0
+
+align 4
+.dhcp_tries			dd 0
 
 ; net_checksum:
 ; Performs the network checksum on data

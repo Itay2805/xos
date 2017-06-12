@@ -69,6 +69,8 @@ NET_GET_MAC			= 0x0012
 	include			"i8254x/driver.asm"
 	include			"i8254x/string.asm"
 	include			"i8254x/registers.asm"
+	include			"i8254x/transmit.asm"
+	include			"i8254x/receive.asm"
 
 ; main:
 ; Driver entry point
@@ -82,6 +84,15 @@ main:
 
 	cmp eax, STD_DRIVER_RESET	; reset?
 	je driver_reset
+
+	cmp eax, NET_GET_MAC		; get MAC address?
+	je get_mac
+
+	cmp eax, NET_SEND_PACKET	; transmit packet?
+	je transmit
+
+	cmp eax, NET_RECEIVE_PACKET	; receive packet?
+	je receive
 
 	push eax
 
@@ -167,6 +178,8 @@ driver_init:
 	cmp eax, 0
 	je .memory_error
 
+	mov [mmio], eax
+
 	; enable MMIO, busmaster DMA, disable interrupts
 	mov al, [pci_bus]
 	mov ah, [pci_slot]
@@ -183,6 +196,27 @@ driver_init:
 	mov bh, PCI_STATUS_COMMAND
 	mov ebp, XOS_PCI_WRITE
 	int 0x61
+
+	mov eax, 0
+	mov ecx, (48*1024)/4096
+	mov dl, 0x13		; present, read/write, uncacheable
+	mov ebp, XOS_VMM_ALLOC
+	int 0x61
+	mov [rx_buffer], eax
+
+	mov eax, 0
+	mov ecx, (48*1024)/4096
+	mov dl, 0x13		; present, read/write, uncacheable
+	mov ebp, XOS_VMM_ALLOC
+	int 0x61
+	mov [receive_buffer], eax
+
+	mov eax, 0
+	mov ecx, (16*1024)/4096
+	mov dl, 0x13		; present, read/write, uncacheable
+	mov ebp, XOS_VMM_ALLOC
+	int 0x61
+	mov [tx_buffer], eax
 
 	; okay, we're finished
 	mov eax, 0
@@ -210,26 +244,171 @@ align 4
 ; Out\	EAX = 0 on success
 
 driver_reset:
-	; for now...
-	mov eax, 1
-	ret
-
-	; disable all interrupts
 	mov edi, [mmio]
+
 	mov eax, 0xFFFFFFFF
-	mov [edi+I8254X_INTERRUPT_MASK_CLEAR], eax
-	mov [edi+I8254X_INTERRUPT_CAUSE], eax
+	mov [edi+I8254X_REG_IMC], eax		; disable interrupt causes
 
-	; disable interrupt throttling
+	mov eax, [edi+I8254X_REG_ICR]		; clear pending interrupts
 	mov eax, 0
-	mov [edi+I8254X_INTERRUPT_THROTTLE], eax
+	mov [edi+I8254X_REG_ITR], eax		; disable interrupt throttling
 
-	; RX buffer 48 KB
 	mov eax, 48
-	mov [edi+I8254X_PACKET_ALLOCATION], eax
+	mov [edi+I8254X_REG_PBA], eax		; RX buffer is 48 KB
+
+	mov eax, 0x80008060
+	mov [edi+I8254X_REG_TXCW], eax
+
+	mov eax, [edi+I8254X_REG_CTRL]
+	btr eax, 3
+	bts eax, 6
+	bts eax, 5
+	btr eax, 31
+	btr eax, 30
+	btr eax, 7
+	mov [edi+I8254X_REG_CTRL], eax
+
+	push edi
+	add edi, 0x5200		; MTA reset
+	mov eax, 0xFFFFFFFF
+	stosd
+	stosd
+	stosd
+	stosd
+	pop edi
+
+	; receive buffer base address
+	mov eax, [rx_buffer]
+	mov ebp, XOS_VIRTUAL_TO_PHYSICAL
+	int 0x61
+
+	mov edi, [mmio]
+	mov [edi+I8254X_REG_RDBAL], eax
+	mov eax, 0
+	mov [edi+I8254X_REG_RDBAH], eax
+
+	; receive descriptor length
+	mov eax, 32*16
+	mov [edi+I8254X_REG_RDLEN], eax
+
+	; head and tail
+	mov eax, 0
+	mov [edi+I8254X_REG_RDH], eax
+
+	mov eax, 1
+	mov [edi+I8254X_REG_RDT], eax
+
+	; enable receive, store bad packets, broadcast
+	mov eax, 0x04008006
+	mov [edi+I8254X_REG_RCTL], eax
+
+	mov eax, [receive_buffer]
+	mov ebp, XOS_VIRTUAL_TO_PHYSICAL
+	int 0x61
+
+	mov edi, [rx_buffer]
+	stosd
+	mov eax, 0
+	stosd
+
+	; transmit descriptor base address
+	mov eax, [tx_buffer]
+	mov ebp, XOS_VIRTUAL_TO_PHYSICAL
+	int 0x61
+
+	mov edi, [mmio]
+	mov [edi+I8254X_REG_TDBAL], eax
+	mov eax, 0
+	mov [edi+I8254X_REG_TDBAH], eax
+
+	; transmit length
+	mov eax, 32*16
+	mov [edi+I8254X_REG_TDLEN], eax
+
+	; transmit head and tail
+	mov eax, 0
+	mov [edi+I8254X_REG_TDH], eax
+	mov [edi+I8254X_REG_TDT], eax
+
+	mov eax, 0x010400FA
+	mov [edi+I8254X_REG_TCTL], eax
+
+	mov eax, 0x0060200A
+	mov [edi+I8254X_REG_TIPG], eax
+
+	mov eax, 0
+	mov [edi+I8254X_REG_RDTR], eax
+	mov [edi+I8254X_REG_RADV], eax
+	mov [edi+I8254X_REG_RSRPD], eax
 
 	mov eax, 0
 	ret
+
+; get_mac:
+; Returns the MAC address
+; In\	EBX = Buffer to store MAC address
+; Out\	EAX = 0
+
+get_mac:
+	mov [.buffer], ebx
+
+	mov edi, [mmio]
+	mov eax, [edi+0x5400]
+	cmp eax, 0
+	je .eeprom
+
+	mov esi, [mmio]
+	add esi, 0x5400
+	mov edi, [.buffer]
+	mov eax, [esi]
+	stosd
+	mov eax, [esi+4]	; not sure if register access *must* be 32-bit... it doesn't hurt
+	stosw
+
+	mov eax, 0
+	ret
+
+.eeprom:
+	mov edi, [.buffer]
+	mov esi, [mmio]
+	mov eax, 0x001
+	mov [esi+0x14], eax
+
+	pause
+
+	mov eax, [esi+0x14]
+	shr eax, 16
+	stosw
+
+	pause
+
+	mov eax, 0x101
+	mov [esi+0x14], eax
+
+	pause
+
+	mov eax, [esi+0x14]
+	shr eax, 16
+	stosw
+
+	pause
+
+	mov eax, 0x201
+	mov [esi+0x14], eax
+
+	pause
+
+	mov eax, [esi+0x14]
+	shr eax, 16
+	stosw
+
+	pause
+
+	mov eax, 0
+	ret
+
+align 4
+.buffer				dd 0
 
 	; Data Area
 	newline			db 10,0
@@ -246,6 +425,10 @@ driver_reset:
 
 	align 4
 	mmio			dd 0
+	tx_buffer		dd 0
+	rx_buffer		dd 0
+	receive_buffer		dd 0
+
 
 
 
