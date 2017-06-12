@@ -55,14 +55,14 @@ main:
 	mov cx, 4
 	mov dx, 4
 	mov esi, input_text
-	mov ebx, 0xFFFFFF
+	mov ebx, 0x000000
 	call xwidget_create_label
 
 	mov eax, [window_handle]
 	mov cx, 4
 	mov dx, 4+20
 	mov esi, output_text
-	mov ebx, 0xFFFFFF
+	mov ebx, 0x000000
 	call xwidget_create_label
 
 	mov eax, [window_handle]
@@ -87,7 +87,7 @@ main:
 	mov cx, 4
 	mov dx, 4+20+20
 	mov esi, log_text
-	mov ebx, 0xFFFFFF
+	mov ebx, 0x000000
 	call xwidget_create_label
 
 	mov eax, [window_handle]
@@ -110,7 +110,7 @@ main:
 	mov cx, 408
 	mov dx, 304
 	mov esi, version_text
-	mov ebx, 0xAAAAAA
+	mov ebx, 0x000000
 	call xwidget_create_label
 
 	mov eax, [window_handle]

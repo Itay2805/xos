@@ -56,7 +56,7 @@ main:
 	mov esi, pressed_text
 	mov cx, 4
 	mov dx, 48
-	mov ebx, 0xFFFFFF
+	mov ebx, 0x000000
 	call xwidget_create_label
 
 .hang:

@@ -41,13 +41,13 @@ xos_component xos_create_vscroll(xos_window window, int16_t x, int16_t y, int16_
 void xos_redraw_vscroll(xos_window window, xos_vscroll_t *vscroll)
 {
 	// the background
-	xos_fill_rect(window, vscroll->x, vscroll->y, 16, vscroll->height, BUTTON_BG);
+	xos_fill_rect(window, vscroll->x, vscroll->y, 16, vscroll->height, SCROLLBAR_BG);
 
 	int16_t scroll_height = vscroll->height / (vscroll->max_value + 1);
 	int16_t scroll_y = (vscroll->value * scroll_height) + vscroll->y;
 
 	// the actual scrollbar
-	xos_fill_rect(window, vscroll->x, scroll_y, 16, scroll_height, BUTTON_OUTLINE);
+	xos_fill_rect(window, vscroll->x, scroll_y, 16, scroll_height, SCROLLBAR_FG);
 }
 
 // xos_handle_vscroll_event:

@@ -6,14 +6,14 @@ use32
 
 	; Change These Variables To Suit Yourself
 	align 4
-	xwidget_window_color	dd 0x383838
-	xwidget_button_border	dd 0x505060
-	xwidget_button_bg	dd 0x202020
-	xwidget_button_fg	dd 0xD8D8D8
-	xwidget_textbox_bg	dd 0x484848
-	xwidget_textbox_fg	dd 0xFFFFFF
-	xwidget_outline_focus	dd 0x505060
-	xwidget_outline		dd 0x383838
+	xwidget_window_color	dd 0xD8D8D8
+	xwidget_button_border	dd 0xC0C0D0
+	xwidget_button_bg	dd 0xFFFFFF
+	xwidget_button_fg	dd 0x101010
+	xwidget_textbox_bg	dd 0xFFFFFF
+	xwidget_textbox_fg	dd 0x000000
+	xwidget_outline_focus	dd 0x606080
+	xwidget_outline		dd 0xC0C0D0
 
 	XWIDGET_MAX_WINDOWS	= 8	; for now
 

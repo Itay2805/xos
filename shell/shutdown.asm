@@ -36,9 +36,9 @@ shutdown_dialog:
 	call xwidget_lock
 
 	; set window color
-	;mov eax, [shutdown_handle]
-	;mov ebx, 0x222222
-	;call xwidget_window_set_color
+	mov eax, [shutdown_handle]
+	mov ebx, 0x222222
+	call xwidget_window_set_color
 
 	; make the hint and two buttons
 	mov eax, [shutdown_handle]
