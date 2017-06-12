@@ -549,7 +549,6 @@ ps2_mouse_init:
 	in al, 0x60
 	cmp al, 0
 	jne .no_mouse
-	mov [mouse_id], al
 
 	; demand the mouse ID again
 	mov al, PS2_MOUSE_GET_ID
@@ -561,6 +560,39 @@ ps2_mouse_init:
 	in al, 0x60
 	cmp al, 0
 	jne .no_mouse
+
+	mov [mouse_id], 0
+
+	; try to enable scrollwheel mouse
+	mov al, PS2_MOUSE_SET_SPEED
+	call ps2_mouse_send
+	mov al, 200
+	call ps2_mouse_send
+	mov al, PS2_MOUSE_SET_SPEED
+	call ps2_mouse_send
+	mov al, 100
+	call ps2_mouse_send
+	mov al, PS2_MOUSE_SET_SPEED
+	call ps2_mouse_send
+	mov al, 80
+	call ps2_mouse_send
+
+	; check if it worked
+	mov al, PS2_MOUSE_GET_ID
+	call ps2_mouse_send
+
+	call wait_ps2_read
+	in al, 0x60
+
+	mov [mouse_id], al
+
+	;mov esi, .mouse_id_msg
+	;call kprint
+	;movzx eax, [mouse_id]
+	;call int_to_string
+	;call kprint
+	;mov esi, newline
+	;call kprint
 
 	; disable mouse packets
 	mov al, PS2_MOUSE_DISABLE
@@ -649,12 +681,12 @@ ps2_mouse_init:
 
 .no_mouse_msg			db "ps2: mouse not present.",10,0
 .100_msg			db "ps2: mouse doesn't support 200 packets/sec, using default...",10,0
+.mouse_id_msg			db "ps2: mouse ID is ",0
 
 ; ps2_mouse_irq:
 ; PS/2 Mouse IRQ Handler
 align 32
 ps2_mouse_irq:
-	cli
 	pusha
 
 	; is the byte from the mouse or keyboard?
@@ -665,14 +697,17 @@ ps2_mouse_irq:
 	in al, 0x60
 
 	mov dl, [mouse_irq_state]
-	or dl, dl
-	jz .data
+	cmp dl, 0
+	je .data
 
 	cmp dl, 1
 	je .x
 
 	cmp dl, 2
 	je .y
+
+	cmp dl, 3
+	je .scroll
 
 	mov [mouse_irq_state], 0
 	jmp .done
@@ -694,10 +729,34 @@ ps2_mouse_irq:
 
 .y:
 	mov [mouse_packet.y], al
-	xor dl, dl
-	mov [mouse_irq_state], dl
+
+	cmp [mouse_id], 3
+	je .wait_scroll
+
+	jmp .handle_packet
+
+.wait_scroll:
+	inc [mouse_irq_state]
+	jmp .done
+
+.scroll:
+	mov [mouse_packet.scroll], al
+
+.handle_packet:
+	mov [mouse_irq_state], 0
+
 	call update_mouse
 
+	; check for scroll event
+	mov al, [mouse_packet.scroll]
+	and al, 0x0F
+	cmp al, 0
+	je .check_click
+
+	call wm_scroll_event
+
+.check_click:
+	; check for click event
 	test [mouse_data], MOUSE_LEFT_BTN
 	jz .redraw
 

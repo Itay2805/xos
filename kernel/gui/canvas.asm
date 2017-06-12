@@ -47,6 +47,7 @@ align 2
 ; wm_read_mouse:
 ; Reads the mouse position according to the window position
 ; In\	EAX = Window handle
+; Out\	BL = Scrollwheel displacement
 ; Out\	CX/DX = X/Y pos, 0 on error
 align 32
 wm_read_mouse:
@@ -67,6 +68,8 @@ wm_read_mouse:
 	sub dx, [window_canvas_y]
 
 .finish:
+	mov bl, [mouse_packet.scroll]
+
 	test cx, 0x8000
 	jnz .error
 	test dx, 0x8000

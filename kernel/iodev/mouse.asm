@@ -26,6 +26,7 @@ mouse_packet:
 	.data			db 0
 	.x			db 0
 	.y			db 0
+	.scroll			db 0
 
 ; Mouse Speed
 mouse_speed			db 0		; 0 normal speed, 1 -> 4 fast speeds

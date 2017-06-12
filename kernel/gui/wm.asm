@@ -56,6 +56,7 @@ WM_CLOSE			= 0x0008
 WM_GOT_FOCUS			= 0x0010
 WM_LOST_FOCUS			= 0x0020
 WM_DRAG				= 0x0040
+WM_SCROLL			= 0x0080
 
 MAXIMUM_WINDOWS			= 512
 
@@ -1211,6 +1212,32 @@ wm_kbd_event:
 	add eax, [window_handles]
 
 	or word[eax+WINDOW_EVENT], WM_KEYPRESS
+
+.quit:
+	ret
+
+; wm_scroll_event:
+; WM Scrollwheel Event Handler
+align 32
+wm_scroll_event:
+	cmp [wm_running], 0
+	je .quit
+
+	; is the mouse on the active window?
+	; if not, ignore the event
+	mov eax,[active_window]
+	cmp eax, -1
+	je .quit
+
+	call wm_is_mouse_on_window
+	cmp eax, 1
+	jne .quit
+
+	; okay, send a scrollwheel event
+	mov eax, [active_window]
+	shl eax, 7
+	add eax, [window_handles]
+	or word[eax+WINDOW_EVENT], WM_SCROLL
 
 .quit:
 	ret
