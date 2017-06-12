@@ -33,7 +33,7 @@ xos_component xos_determine_component(xos_window window, k_mouse_status *mouse)
 				button = (xos_button_t*)((component << 8) + libxos_windows[window].components);
 				x = button->x;
 				y = button->y;
-				endx = x + (strlen(button->text) << 4) + 32;
+				endx = x + (strlen(button->text) << 3) + 32;
 				endy = y + 32;
 
 				if(mouse->x >= x && mouse->x <= endx && mouse->y >= y && mouse->y <= endy)

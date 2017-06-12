@@ -36,7 +36,7 @@ xos_component xos_create_button(xos_window window, int16_t x, int16_t y, char *t
 
 void xos_redraw_button(xos_window window, xos_button_t *button)
 {
-	int16_t width = (int16_t)(strlen(button->text) << 4) + 32;
+	int16_t width = (int16_t)(strlen(button->text) << 3) + 32;
 	int16_t text_x;
 
 	text_x = (button->x + (button->x + width)) >> 1;
