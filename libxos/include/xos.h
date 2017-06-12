@@ -43,6 +43,16 @@
 #define XOS_EVENT_LOST_FOCUS		5
 #define XOS_EVENT_DRAG			6
 
+// File Permission
+#define FILE_WRITE			2
+#define FILE_READ			4
+#define FILE_CREATE			128
+
+// Seeking in File
+#define SEEK_SET			0
+#define SEEK_CUR			1
+#define SEEK_END			2
+
 typedef struct k_mouse_status
 {
 	int16_t x;		// 00
@@ -73,6 +83,13 @@ extern void k_clear(int32_t window, uint32_t color);
 extern void *malloc(size_t size);
 extern void free(void *memory);
 
+extern int32_t k_open(char *filename, uint32_t permissions);
+extern void k_close(int32_t handle);
+extern int32_t k_seek(int32_t handle, uint32_t base, size_t offset);
+extern size_t k_tell(int32_t handle);
+extern size_t k_read(int32_t handle, size_t count, void *buffer);
+extern size_t k_write(int32_t handle, size_t count, void *buffer);
+
 typedef struct libxos_internal_window
 {
 	uint8_t present;
@@ -80,6 +97,7 @@ typedef struct libxos_internal_window
 	int32_t k_window;
 	uint32_t color;
 	uint8_t *components;
+	k_mouse_status initial_click;
 } libxos_internal_window;
 
 typedef int32_t xos_window;
@@ -99,7 +117,7 @@ typedef struct xos_kbd_event_t
 
 typedef struct xos_event_t
 {
-	uint16_t event_type;
+	uint16_t type;
 	xos_window window;
 	xos_component component;
 	xos_mouse_event_t mouse_coords;
@@ -123,6 +141,21 @@ typedef struct xos_button_t
 	char *text;
 } xos_button_t;
 
+typedef struct xos_vscroll_t
+{
+	// these fields can be used by application
+	uint8_t component_type;
+	int16_t x;
+	int16_t y;
+	int16_t height;
+	uint32_t max_value;
+	uint32_t value;
+
+	// these fields are for internal use and may change any time
+	int16_t initial_click;
+	uint32_t initial_value;
+} xos_vscroll_t;
+
 // These functions are meant for internal use by libXOS
 extern void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height, uint32_t color);
 
@@ -141,6 +174,10 @@ extern void xos_redraw_label(xos_window window, xos_label_t *label);
 
 extern xos_component xos_create_button(xos_window window, int16_t x, int16_t y, char *text);
 extern void xos_redraw_button(xos_window window, xos_button_t *button);
+
+extern xos_component xos_create_vscroll(xos_window window, int16_t x, int16_t y, int16_t height, uint32_t max);
+extern void xos_redraw_vscroll(xos_window window, xos_vscroll_t *vscroll);
+extern void xos_handle_vscroll_event(xos_window window, xos_vscroll_t *vscroll, k_mouse_status *mouse);
 
 #endif
 

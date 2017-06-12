@@ -10,6 +10,7 @@ int xos_main()
 {
 	xos_window window;
 	xos_event_t event;
+	xos_component button;
 
 	// create a window
 	window = xos_create_window(64, 64, 256, 180, 0, "Hello world");
@@ -18,7 +19,9 @@ int xos_main()
 	xos_create_label(window, 8, 8, 0xFFFFFF, "Hello, world!\nThis program is written in C.\nThis is a label component.\n\nAbove is an empty line.");
 
 	// and a button, just for showcase
-	xos_create_button(window, 8, 98, "Test Button");
+	button = xos_create_button(window, 8, 98, "Test Button");
+
+	xos_create_vscroll(window, 256-16, 0, 180, 8);
 
 	// redraw the window
 	xos_redraw(window);
@@ -27,8 +30,11 @@ int xos_main()
 	while(1)
 	{
 		xos_poll_event(&event);
-		if(event.event_type == XOS_EVENT_CLOSE)
+		if(event.type == XOS_EVENT_CLOSE)
 			break;
+
+		else if(event.type == XOS_EVENT_MOUSE_CLICK && event.component == button)
+			xos_create_label(window, 8, 146, 0xFFFFFF, "Button has been pressed.");
 	}
 
 	return 0;

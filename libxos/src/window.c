@@ -98,6 +98,8 @@ void xos_redraw(xos_window window)
 	uint8_t *components = libxos_windows[window].components;
 	uint8_t *components_end = components + (LIBXOS_MAX_COMPONENTS * 256);
 
+	k_clear(libxos_windows[window].k_window, libxos_windows[window].color);
+
 	while(components < components_end)
 	{
 		if(components[0] == COMPONENT_NONE)
@@ -108,6 +110,9 @@ void xos_redraw(xos_window window)
 
 		else if(components[0] == COMPONENT_BUTTON)
 			xos_redraw_button(window, (xos_button_t*)components);
+
+		else if(components[0] == COMPONENT_VSCROLL)
+			xos_redraw_vscroll(window, (xos_vscroll_t*)components);
 
 	loop_again:
 		components += 256;
