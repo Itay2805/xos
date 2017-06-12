@@ -114,6 +114,9 @@ void xos_redraw(xos_window window)
 		else if(components[0] == COMPONENT_VSCROLL)
 			xos_redraw_vscroll(window, (xos_vscroll_t*)components);
 
+		else if(components[0] == COMPONENT_CANVAS)
+			xos_redraw_canvas(window, (xos_canvas_t*)components);
+
 	loop_again:
 		components += 256;
 	}

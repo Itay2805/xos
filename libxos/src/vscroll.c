@@ -80,6 +80,30 @@ void xos_handle_vscroll_event(xos_window window, xos_vscroll_t *vscroll, k_mouse
 	xos_redraw(window);
 }
 
+// xos_vscroll_set_max:
+// Sets the maximum value of a vertical scrollbar
+
+void xos_vscroll_set_max(xos_window window, xos_component component, uint32_t max)
+{
+	xos_vscroll_t *vscroll;
+	vscroll = (xos_vscroll_t*)((component << 8) + libxos_windows[window].components);
+
+	vscroll->max_value = max;
+	if(vscroll->value > max)
+		vscroll->value = 0;
+}
+
+// xos_vscroll_get_value:
+// Returns the value of the vertical scrollbar
+
+uint32_t xos_vscroll_get_value(xos_window window, xos_component component)
+{
+	xos_vscroll_t *vscroll;
+	vscroll = (xos_vscroll_t*)((component << 8) + libxos_windows[window].components);
+
+	return vscroll->value;
+}
+
 
 
 

@@ -143,18 +143,33 @@ typedef struct xos_button_t
 
 typedef struct xos_vscroll_t
 {
-	// these fields can be used by application
 	uint8_t component_type;
 	int16_t x;
 	int16_t y;
 	int16_t height;
 	uint32_t max_value;
 	uint32_t value;
-
-	// these fields are for internal use and may change any time
-	int16_t initial_click;
-	uint32_t initial_value;
 } xos_vscroll_t;
+
+typedef struct xos_hscroll_t
+{
+	uint8_t component_type;
+	int16_t x;
+	int16_t y;
+	int16_t width;
+	uint32_t max_value;
+	uint32_t value;
+} xos_hscroll_t;
+
+typedef struct xos_canvas_t
+{
+	uint8_t component_type;
+	int16_t x;
+	int16_t y;
+	int16_t width;
+	int16_t height;
+	uint32_t *buffer;
+} xos_canvas_t;
 
 // These functions are meant for internal use by libXOS
 extern void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height, uint32_t color);
@@ -178,7 +193,14 @@ extern void xos_redraw_button(xos_window window, xos_button_t *button);
 extern xos_component xos_create_vscroll(xos_window window, int16_t x, int16_t y, int16_t height, uint32_t max);
 extern void xos_redraw_vscroll(xos_window window, xos_vscroll_t *vscroll);
 extern void xos_handle_vscroll_event(xos_window window, xos_vscroll_t *vscroll, k_mouse_status *mouse);
+extern void xos_vscroll_set_max(xos_window window, xos_component component, uint32_t max);
+extern uint32_t xos_vscroll_get_value(xos_window window, xos_component component);
+
+extern xos_component xos_create_canvas(xos_window window, int16_t x, int16_t y, int16_t width, int16_t height);
+extern void xos_redraw_canvas(xos_window window, xos_canvas_t *canvas);
+extern uint32_t *xos_canvas_get_buffer(xos_window window, xos_component component);
 
 #endif
+
 
 
