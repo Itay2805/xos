@@ -141,6 +141,9 @@ driver_init:
 	mov esi, driver_name
 	mov ebp, XOS_KPRINT
 	int 0x61
+	mov esi, newline
+	mov ebp, XOS_KPRINT
+	int 0x61
 
 	mov esi, found_msg
 	mov ebp, XOS_KPRINT
@@ -412,7 +415,7 @@ align 4
 
 	; Data Area
 	newline			db 10,0
-	driver_name		db "Intel i8254x-series network driver for xOS",10,0
+	driver_name		db "Intel i8254x-series network driver for xOS",0
 	unknown_msg		db "i8254x: unknown request ",0
 
 	found_msg		db "i8254x: found device on PCI slot ",0

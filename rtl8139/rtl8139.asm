@@ -120,6 +120,9 @@ driver_init:
 	mov esi, driver_name
 	mov ebp, XOS_KPRINT
 	int 0x61
+	mov esi, newline
+	mov ebp, XOS_KPRINT
+	int 0x61
 
 	mov esi, copyright
 	mov ebp, XOS_KPRINT
@@ -357,7 +360,7 @@ get_mac:
 
 	; Data Area
 	newline				db 10,0
-	driver_name			db "RTL8139 network driver for xOS",10,0
+	driver_name			db "RTL8139 network driver for xOS",0
 	copyright			db "Copyright (C) 2017 by Omar Mohammad.",10,0
 	unknown_msg			db "rtl8139: unknown request ",0
 

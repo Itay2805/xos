@@ -46,4 +46,4 @@ com2: enabled=0
 com3: enabled=0
 com4: enabled=0
 usb_uhci: enabled=1, port1=none, options1=none, port2=none, options2=none
-e1000: enabled=1, mac=fe:fd:de:ad:be:ef, ethmod=null, ethdev="xl0", script=none, bootrom=none
+e1000: enabled=1, mac=fe:fd:de:ad:be:ef, ethmod=null, ethdev=none, script=none, bootrom=none

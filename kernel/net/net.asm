@@ -105,10 +105,6 @@ net_init:
 	cmp [.dhcp_tries], 8
 	jge .dhcp_done
 
-	mov eax, STD_DRIVER_RESET
-	mov ebp, [net_entry]
-	call ebp
-
 	call dhcp_init
 	cmp [network_available], 1
 	jne .do_dhcp
