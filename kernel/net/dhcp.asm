@@ -197,11 +197,11 @@ dhcp_init:
 
 	; okay, check if the packet is the DHCP reply
 	; destination has to be broadcast
-	mov edi, [.packet]
-	mov esi, broadcast_mac
-	mov ecx, 6
-	rep cmpsb
-	jne .receive_start		; not our packet -- try again
+	;mov edi, [.packet]
+	;mov esi, broadcast_mac
+	;mov ecx, 6
+	;rep cmpsb
+	;jne .receive_start		; not our packet -- try again
 
 	; save the source MAC
 	mov esi, [.packet]
