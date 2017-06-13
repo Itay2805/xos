@@ -23,7 +23,7 @@ TCP_URG					= 0x20
 ; In\	EBX = Destination IP
 ; In\	ECX = Data payload size
 ; In\	EDX = High WORD: destination port, low WORD: source port
-; In\	ESI = Sequence and ACK numbers and flags, followed by data payload
+; In\	ESI = Sequence and ACK numbers and flags and window size, followed by data payload
 ; In\	EDI = Destination MAC
 ; Out\	EAX = 0 on success
 

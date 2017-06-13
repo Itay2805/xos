@@ -102,6 +102,35 @@ align 4
 .pages				dd 0
 .return				dd 0
 
+; realloc:
+; Reallocates user memory
+; In\	EAX = Pointer
+; In\	ECX = New size
+; Out\	EAX = New pointer
+
+realloc:
+	mov [.pointer], eax
+	mov [.size], ecx
+
+	mov ecx, [.size]
+	call malloc
+	mov [.new_pointer], eax
+
+	mov esi, [.pointer]
+	mov ecx, [esi-16]
+	shl ecx, 12		; mul 4096
+	mov edi, [.new_pointer]
+	rep movsb
+
+	mov eax, [.new_pointer]
+	ret
+
+.msg		db "realloc",10,0
+align 4
+.pointer			dd 0
+.new_pointer			dd 0
+.size				dd 0
+
 ; free:
 ; Frees user memory
 ; In\	EAX = Pointer to memory

@@ -341,7 +341,6 @@ idle_process:
 
 	; Graphics
 	include "kernel/gui/gdi.asm"		; Graphics library
-	;include "kernel/gui/desktop.asm"	; Desktop
 	include "kernel/gui/wm.asm"		; Window manager
 	include "kernel/gui/canvas.asm"		; Window canvas functions
 
@@ -362,7 +361,7 @@ idle_process:
 	include "kernel/usb/ohci.asm"		; USB 1.1 (OHCI)
 	;include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
-	;include "kernel/usb/usbmsd.asm"	; USB Mass Storage Device Driver
+	;include "kernel/usb/msd.asm"		; USB Mass Storage Device Driver
 	include "kernel/usb/hid.asm"		; USB Human Interface Device Driver
 
 	; Network Stack
@@ -373,6 +372,7 @@ idle_process:
 	include "kernel/net/dhcp.asm"		; DHCP Protocol
 	include "kernel/net/dns.asm"		; DNS Protocol
 	include "kernel/net/tcp.asm"		; TCP Protocol
+	include "kernel/net/socket.asm"		; Sockets (TCP/UDP abstraction)
 	include "kernel/net/http.asm"		; HTTP Protocol
 	;include "kernel/net/https.asm"		; HTTPS Protocol
 

@@ -100,7 +100,13 @@ net_init:
 	mov esi, newline
 	call kprint
 
+	; allocate memory for the sockets
+	mov ecx, MAX_SOCKETS*SOCKET_SIZE
+	call kmalloc
+	mov [sockets], eax
+
 .do_dhcp:
+	; get ourselves an IP address using DHCP with a timeout
 	inc [.dhcp_tries]
 	cmp [.dhcp_tries], 3
 	jge .dhcp_done
@@ -112,6 +118,13 @@ net_init:
 .dhcp_done:
 	call arp_gratuitous
 
+	mov esi, .test
+	call http_get
+	mov esi, eax
+	call com1_send
+
+	cli
+	hlt
 	ret
 
 .no_driver:
@@ -121,6 +134,7 @@ net_init:
 	mov [network_available], 0
 	ret
 
+.test				db "forum.osdev.org",0
 .rtl8139_filename:		db "drivers/netio/rtl8139.sys",0
 .i8254x_filename:		db "drivers/netio/i8254x.sys",0
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0

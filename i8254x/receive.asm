@@ -35,8 +35,8 @@ receive:
 
 	mov edi, [rx_buffer]
 	stosd
-	mov eax, 0
-	stosd
+	;mov eax, 0
+	;stosd
 
 	mov eax, [.length]
 	ret
