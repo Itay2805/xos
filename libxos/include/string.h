@@ -7,13 +7,11 @@
  * MIT license
  */
 
-#ifndef __STRING_H_LIBXOS__
-#define __STRING_H_LIBXOS__
+#pragma once
 
 #include <stdtyp.h>
 
 extern size_t strlen(char *string);
 
-#endif
 
 

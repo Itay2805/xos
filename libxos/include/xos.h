@@ -7,8 +7,7 @@
  * MIT license
  */
 
-#ifndef __XOS_H_LIBXOS__
-#define __XOS_H_LIBXOS__
+#pragma once
 
 #include <stdtyp.h>
 
@@ -202,7 +201,7 @@ extern xos_component xos_create_canvas(xos_window window, int16_t x, int16_t y, 
 extern void xos_redraw_canvas(xos_window window, xos_canvas_t *canvas);
 extern uint32_t *xos_canvas_get_buffer(xos_window window, xos_component component);
 
-#endif
+
 
 
 
