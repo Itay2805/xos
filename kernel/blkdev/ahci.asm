@@ -339,8 +339,8 @@ ahci_identify:
 	mov [ahci_command_fis.fis_type], AHCI_FIS_H2D
 	mov [ahci_command_fis.flags], 0x80
 	mov [ahci_command_fis.command], SATA_IDENTIFY	; 0xEC
-	;mov [ahci_command_fis.count], 1
-	;mov [ahci_command_fis.device], 0xA0
+	mov [ahci_command_fis.count], 0
+	mov [ahci_command_fis.device], 0xA0		; drive select
 
 	; the PRDT
 	mov dword[ahci_prdt.base], sata_identify_data
