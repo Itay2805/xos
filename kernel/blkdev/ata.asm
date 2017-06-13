@@ -146,30 +146,6 @@ ata_detect:
 	mov esi, newline
 	call kprint
 
-	; reset the ATA channels
-	call ata_reset
-
-	; disable ATA IRQs
-	mov dx, [ata_primary]
-	add dx, 0x206
-	mov al, 2
-	out dx, al
-
-	mov dx, [ata_secondary]
-	add dx, 0x206
-	mov al, 2
-	out dx, al
-
-	; detect the devices
-	mov dl, 0			; primary channel/master dev
-	call ata_identify
-	mov dl, 1			; primary channel/slave dev
-	call ata_identify
-	mov dl, 2			; secondary channel/master dev
-	call ata_identify
-	mov dl, 3			; secondary channel/slave dev
-	call ata_identify
-
 	; setup the ATA IRQ stuff
 	mov al, 14+IRQ_BASE
 	mov ebp, ata_irq_primary
@@ -183,6 +159,28 @@ ata_detect:
 	call irq_unmask
 	mov al, 15
 	call irq_unmask
+
+	; reset the ATA channels
+	call ata_reset
+
+	; disable ATA IRQs
+	;mov dx, [ata_primary_status]
+	;mov al, 2
+	;out dx, al
+
+	;mov dx, [ata_secondary_status]
+	;mov al, 2
+	;out dx, al
+
+	; detect the devices
+	mov dl, 0			; primary channel/master dev
+	call ata_identify
+	mov dl, 1			; primary channel/slave dev
+	call ata_identify
+	mov dl, 2			; secondary channel/master dev
+	call ata_identify
+	mov dl, 3			; secondary channel/slave dev
+	call ata_identify
 
 	; reset, also enables IRQs
 	call ata_reset
@@ -242,15 +240,13 @@ ata_identify:
 	call ata_reset
 
 	; disable ATA IRQs
-	mov dx, [ata_primary]
-	add dx, 0x206
-	mov al, 2
-	out dx, al
+	;mov dx, [ata_primary_status]
+	;mov al, 2
+	;out dx, al
 
-	mov dx, [ata_secondary]
-	add dx, 0x206
-	mov al, 2
-	out dx, al
+	;mov dx, [ata_secondary_status]
+	;mov al, 2
+	;out dx, al
 
 	pop edx
 
