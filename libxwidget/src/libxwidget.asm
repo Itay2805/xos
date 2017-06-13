@@ -280,7 +280,7 @@ xwidget_wait_event:
 
 .clicked_loop:
 	cmp esi, [.components_end]
-	jge .start
+	jge .clicked_window
 
 	cmp byte[esi], XWIDGET_CPNT_BUTTON
 	je .clicked_button
@@ -395,6 +395,11 @@ xwidget_wait_event:
 	call xwidget_redraw	; redraw to "show" the focus
 
 	jmp .clicked_continue
+
+.clicked_window:
+	mov eax, XWIDGET_BUTTON
+	mov ebx, [.current_window]
+	ret
 
 .clicked_continue:
 	mov esi, [.tmp]

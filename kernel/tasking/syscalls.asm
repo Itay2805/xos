@@ -4,7 +4,7 @@
 
 use32
 
-MAXIMUM_FUNCTION		= 0x001C
+MAXIMUM_FUNCTION		= 0x0020
 
 ; Function Table ;)
 align 16
@@ -37,7 +37,12 @@ api_table:
 	dd reboot		; 0x0019
 	dd get_memory_usage	; 0x001A
 	dd enum_tasks		; 0x001B
-	dd get_uptime		; 0x001C	
+	dd get_uptime		; 0x001C
+	dd net_get_connection	; 0x001D
+	dd net_send		; 0x001E
+	dd net_receive		; 0x001F
+	dd http_head		; 0x0020
+	;dd http_get		; 0x0021	
 
 ; syscall_init:
 ; Installs the kernel API interrupt vector

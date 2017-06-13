@@ -18,6 +18,7 @@ application_header:
 	include			"shell/string.asm"
 	include			"shell/menu.asm"
 	include			"shell/shutdown.asm"
+	include			"shell/notification.asm"
 
 	; For File Access
 	FILE_WRITE		= 0x00000002
@@ -75,16 +76,29 @@ main:
 	call xwidget_create_label
 	mov [time_handle], eax
 
+	; get network status, show notification if needed
+	mov ebp, XOS_NET_GET_CONNECTION
+	int 0x60
+	cmp eax,0
+	je .hang
+
+	call network_notification
+
 .hang:
 	call xwidget_wait_event
 	cmp eax, XWIDGET_BUTTON
-	je .button
-	jmp .hang
+	jne .hang
 
 .button:
 	cmp ebx, [menu_handle]
 	je open_menu
+	cmp ebx, [notification_handle]
+	je .close
 
+	jmp .hang
+
+.close:
+	call close_notification
 	jmp .hang
 
 ; config_error:

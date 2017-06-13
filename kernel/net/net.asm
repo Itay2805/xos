@@ -102,7 +102,7 @@ net_init:
 
 .do_dhcp:
 	inc [.dhcp_tries]
-	cmp [.dhcp_tries], 8
+	cmp [.dhcp_tries], 3
 	jge .dhcp_done
 
 	call dhcp_init
@@ -129,6 +129,15 @@ net_init:
 
 align 4
 .dhcp_tries			dd 0
+
+; net_get_connection:
+; Returns the internet connection status
+; In\	Nothing
+; Out\	EAX = Status (0 = no connection, 1 = connected)
+
+net_get_connection:
+	movzx eax, [network_available]
+	ret
 
 ; net_checksum:
 ; Performs the network checksum on data
