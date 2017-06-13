@@ -373,7 +373,7 @@ idle_process:
 	include "kernel/net/dhcp.asm"		; DHCP Protocol
 	include "kernel/net/dns.asm"		; DNS Protocol
 	include "kernel/net/tcp.asm"		; TCP Protocol
-	;include "kernel/net/http.asm"		; HTTP Protocol
+	include "kernel/net/http.asm"		; HTTP Protocol
 	;include "kernel/net/https.asm"		; HTTPS Protocol
 
 	; Boot splash

@@ -12,7 +12,7 @@ window_active_border		dd 0x303030
 window_active_outline		dd 0xC200E8
 window_close_color		dd 0xD80000
 window_background		dd 0xD8D8D8
-window_opacity			db 0		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
+window_opacity			db 1		; valid values are 0 to 4, 0 = opaque, 1 = less transparent, 4 = most transparent.
 window_full_border_height	db 1
 
 align 4

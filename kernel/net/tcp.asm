@@ -23,7 +23,7 @@ TCP_URG					= 0x20
 ; In\	EBX = Destination IP
 ; In\	ECX = Data payload size
 ; In\	EDX = High WORD: destination port, low WORD: source port
-; In\	ESI = Sequence and ACK numbers, followed by data payload
+; In\	ESI = Sequence and ACK numbers and flags, followed by data payload
 ; In\	EDI = Destination MAC
 ; Out\	EAX = 0 on success
 
@@ -40,8 +40,10 @@ tcp_send:
 	mov [.ack], eax
 	mov eax, [esi+8]
 	mov [.flags], eax
+	mov eax, [esi+12]
+	mov [.window], eax
 
-	add esi, 12
+	add esi, 16
 	mov [.data], esi
 	mov [.destination_mac], edi
 
@@ -89,7 +91,7 @@ tcp_send:
 	and eax, 0x3F
 	stosb
 
-	mov ax, 32768			; window size
+	mov eax, [.window]		; window size
 	xchg al, ah
 	stosw
 
@@ -152,6 +154,7 @@ align 4
 .sequence			dd 0
 .ack				dd 0
 .flags				dd 0
+.window				dd 0
 
 .source_port			dw 0
 .destination_port		dw 0
