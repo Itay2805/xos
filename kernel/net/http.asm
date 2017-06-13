@@ -201,15 +201,21 @@ http_close_connection:
 	mov eax, [.ack]
 	stosd
 	mov eax, [.seq]
-	inc eax			; payload size zero
+	cmp [.response_size], 0
+	je .server_fin_zero
+
+	add eax, [.response_size]
+	jmp .server_fin_work
+ 
+.server_fin_zero:
+	inc eax
+
+.server_fin_work:
 	stosd
 	mov eax, TCP_FIN or TCP_ACK
 	stosd
 	mov eax, 8192
 	stosd
-
-	mov al, 'f'
-	call com1_send_byte
 
 	mov eax, [my_ip]
 	mov ebx, [.ip]
