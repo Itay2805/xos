@@ -7,8 +7,7 @@
  * MIT license
  */
 
-#ifndef __STDTYP_H_LIBXOS__
-#define __STDTYP_H_LIBXOS__
+#pragma once
 
 #define NULL 0
 
@@ -25,7 +24,3 @@ typedef unsigned long long uint64_t;
 typedef signed long long int64_t;
 
 typedef uint32_t size_t;
-
-#endif
-
-
