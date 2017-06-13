@@ -30,7 +30,7 @@ shutdown:
 	mov esi, .text
 	mov cx, 16
 	mov dx, 16
-	mov ebx, 0xFFFFFF
+	mov ebx, 0x000000
 	call wm_draw_text
 
 	call wm_redraw
