@@ -18,6 +18,7 @@ http_version_string			db "HTTP/1.1"
 http_user_agent_string			db "User-Agent: xOS kernel HTTP layer",0
 http_host_string			db "Host: ",0
 http_accept_language_string		db "Accept-Language: en-us",0
+http_accept_encoding_string		db "Accept-Encoding: identity",0
 http_keep_alive_string			db "Connection: Keep-Alive",0
 
 ; http_copy_domain:
@@ -502,6 +503,16 @@ http_head:
 	stosb
 
 	mov esi, http_accept_language_string
+	call strlen
+	mov ecx, eax
+	rep movsb
+
+	mov al, 13
+	stosb
+	mov al, 10
+	stosb
+
+	mov esi, http_accept_encoding_string
 	call strlen
 	mov ecx, eax
 	rep movsb
