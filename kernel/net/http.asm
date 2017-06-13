@@ -9,7 +9,7 @@ HTTP_SOURCE_PORT			= 32768
 HTTP_DESTINATION_PORT			= 80
 HTTP_DEBUG_PORT				= 8080		; probably not needed..
 
-HTTP_TIMEOUT				= 0x800000
+HTTP_TIMEOUT				= 0x200000
 HTTP_INITIAL_SEQ			= 0x00000000
 
 http_get_string				db "GET "
