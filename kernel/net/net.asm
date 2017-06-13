@@ -118,13 +118,6 @@ net_init:
 .dhcp_done:
 	call arp_gratuitous
 
-	mov esi, .test
-	call http_get
-	mov esi, eax
-	call com1_send
-
-	cli
-	hlt
 	ret
 
 .no_driver:
@@ -134,7 +127,6 @@ net_init:
 	mov [network_available], 0
 	ret
 
-.test				db "forum.osdev.org",0
 .rtl8139_filename:		db "drivers/netio/rtl8139.sys",0
 .i8254x_filename:		db "drivers/netio/i8254x.sys",0
 .no_driver_msg			db "net: failed to load NIC driver, can't initialize network stack...",10,0
