@@ -60,6 +60,12 @@ typedef struct k_mouse_status
 	int16_t y;		// 02
 }__attribute__((packed)) k_mouse_status;
 
+typedef struct k_keypress
+{
+	uint8_t character;	// 00
+	uint8_t scancode;	// 01
+}__attribute__((packed)) k_keypress;
+
 typedef struct k_window
 {
 	int16_t x;		// 00
@@ -70,6 +76,13 @@ typedef struct k_window
 	uint32_t canvas;	// 0A
 	uint32_t title;		// 0E
 }__attribute__((packed)) k_window;
+
+typedef struct k_screen
+{
+	int16_t width;		// 00
+	int16_t height;		// 02
+	int16_t bpp;		// 04
+}__attribute__((packed)) k_screen;
 
 // Internal kernel functions - meant to be used internally by libxos
 extern int32_t k_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
@@ -83,6 +96,10 @@ extern void k_draw_text(int32_t window, int16_t x, int16_t y, uint32_t color, co
 extern void k_clear(int32_t window, uint32_t color);
 extern void *malloc(size_t size);
 extern void free(void *memory);
+extern void *realloc(void *ptr, size_t size);
+
+extern void k_read_key(k_keypress *key);
+extern void k_destroy_window(int32_t window);
 
 extern int32_t k_open(char *filename, uint32_t permissions);
 extern void k_close(int32_t handle);
@@ -90,6 +107,10 @@ extern int32_t k_seek(int32_t handle, uint32_t base, size_t offset);
 extern size_t k_tell(int32_t handle);
 extern size_t k_read(int32_t handle, size_t count, void *buffer);
 extern size_t k_write(int32_t handle, size_t count, void *buffer);
+
+extern void k_get_screen(k_screen *screen);
+
+extern void kprint(char *string);
 
 typedef struct libxos_internal_window
 {
@@ -178,6 +199,8 @@ extern void xos_fill_rect(xos_window window, int16_t x, int16_t y, int16_t width
 // These functions are meant for the user program
 extern libxos_internal_window *libxos_windows;
 extern xos_window xos_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
+extern void xos_destroy_window(xos_window window);
+extern void xos_set_color(xos_window window, uint32_t color);
 extern void xos_lock(xos_window window);
 extern void xos_unlock(xos_window window);
 extern void xos_redraw(xos_window window);

@@ -245,6 +245,183 @@ free:
 	popa
 	ret
 
+; void *realloc(void *ptr, size_t size);
+public realloc
+realloc:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ecx, [esp+32+8]
+	mov ebp, XOS_REALLOC
+	int 0x60
+
+	mov [.return], eax
+	popa
+	mov eax, [.return]
+	ret
+
+align 4 
+.return				dd 0 
+
+; void k_get_screen(k_screen *screen);
+public k_get_screen
+k_get_screen:
+	pusha
+
+	mov ebp, XOS_GET_SCREEN_INFO
+	int 0x60
+
+	mov edi, [esp+32+4]		; *screen
+	mov [edi], ax
+	mov [edi+2], bx
+	and cx, 0xFF
+	mov [edi+4], cx
+
+	popa
+	ret
+
+; void k_read_key(k_keypress *key);
+public k_read_key
+k_read_key:
+	pusha
+
+	mov ebp, XOS_READ_KEY
+	int 0x60
+
+	mov edi, [esp+32+4]
+	mov [edi], al		; char
+	mov [edi+1], ah		; scancode
+
+	popa
+	ret
+
+; void k_destroy_window(int32_t window);
+public k_destroy_window
+k_destroy_window:
+	pusha
+
+	mov ebp, XOS_WM_KILL
+	mov eax, [esp+32+4]
+	int 0x60
+
+	popa
+	ret
+
+; int32_t k_open(char *filename, uint32_t permissions);
+public k_open
+k_open:
+	pusha
+
+	mov esi, [esp+32+4]
+	mov edx, [esp+32+8]
+	mov ebp, XOS_OPEN
+	int 0x60
+
+	mov [.handle], eax
+	popa
+	mov eax, [.handle]
+	ret
+
+align 4
+.handle				dd 0
+
+; void k_close(int32_t handle);
+public k_close
+k_close:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ebp, XOS_CLOSE
+	int 0x60
+
+	popa
+	ret
+
+; int32_t k_seek(int32_t handle, uint32_t base, size_t offset);
+public k_seek
+k_seek:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ebx, [esp+32+8]
+	mov ecx, [esp+32+12]
+	mov ebp, XOS_SEEK
+	int 0x60
+
+	mov [.return], eax
+	popa
+	mov eax, [.return]
+	ret
+
+align 4
+.return				dd 0
+
+; size_t k_tell(int32_t handle);
+public k_tell
+k_tell:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ebp, XOS_TELL
+	int 0x60
+
+	mov [.return], eax
+	popa
+	mov eax, [.return]
+	ret
+
+align 4
+.return				dd 0
+
+; size_t k_read(int32_t handle, size_t count, void *buffer);
+public k_read
+k_read:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ecx, [esp+32+8]
+	mov edi, [esp+32+12]
+	mov ebp, XOS_READ
+	int 0x60
+
+	mov [.return], eax
+	popa
+	mov eax, [.return]
+	ret
+
+align 4
+.return				dd 0
+
+; size_t k_write(int32_t handle, size_t count, void *buffer);
+public k_write
+k_write:
+	pusha
+
+	mov eax, [esp+32+4]
+	mov ecx, [esp+32+8]
+	mov esi, [esp+32+12]
+	mov ebp, XOS_WRITE
+	int 0x60
+
+	mov [.return], eax
+	popa
+	mov eax, [.return]
+	ret
+
+align 4
+.return				dd 0
+
+; void kprint(char *string);
+public kprint
+kprint:
+	pusha
+
+	mov esi, [esp+32+4]
+	mov ebp, XOS_KPRINT
+	int 0x60
+
+	popa
+	ret
 
 
 

@@ -1,3 +1,4 @@
+
 /*
  * libXOS
  * Rudimentary custom C library for xOS
@@ -7,6 +8,7 @@
  */
 
 #include <stdtyp.h>
+
 // abs:
 // Returns absolute value of i
 size_t abs(size_t i){

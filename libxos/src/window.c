@@ -71,6 +71,35 @@ xos_window xos_create_window(int16_t x, int16_t y, int16_t width, int16_t height
 	return ret;
 }
 
+// xos_destroy_window:
+// Destroys a window
+
+void xos_destroy_window(xos_window window)
+{
+	if(window >= LIBXOS_MAX_WINDOWS || libxos_windows[window].present != 1)
+		return;
+
+	// free the component memory
+	free(libxos_windows[window].components);
+
+	// destroy the window itself
+	k_destroy_window(libxos_windows[window].k_window);
+
+	// and destroy the handle
+	libxos_windows[window].present = 0;
+	libxos_windows[window].k_window = 0;
+	libxos_windows[window].color = 0;
+	libxos_windows[window].components = 0;
+}
+
+// xos_set_color:
+// Sets a window oclor
+
+void xos_set_color(xos_window window, uint32_t color)
+{
+	libxos_windows[window].color = color;
+}
+
 // xos_lock:
 // Prevents a window from being redrawn
 

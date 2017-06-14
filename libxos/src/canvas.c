@@ -49,7 +49,7 @@ void xos_redraw_canvas(xos_window window, xos_canvas_t *canvas)
 	k_window window_info;
 	k_get_window(libxos_windows[window].k_window, &window_info);
 
-	uint32_t *offset = ((canvas->y * window_info.width) + (canvas->x * 4) + window_info.canvas);
+	uint32_t *offset = (uint32_t*)((canvas->y * window_info.width*4) + (canvas->x * 4) + window_info.canvas);
 	uint32_t *buffer = canvas->buffer;
 
 	int16_t x2 = 0, y2 = 0;

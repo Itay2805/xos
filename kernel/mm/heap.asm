@@ -118,9 +118,14 @@ realloc:
 
 	mov esi, [.pointer]
 	mov ecx, [esi-16]
-	shl ecx, 12		; mul 4096
+	shl ecx, 12
+	sub ecx, 16
+	;add esi, 16
 	mov edi, [.new_pointer]
 	rep movsb
+
+	mov eax, [.pointer]
+	call free
 
 	mov eax, [.new_pointer]
 	ret

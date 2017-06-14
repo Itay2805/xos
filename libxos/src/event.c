@@ -73,6 +73,7 @@ void xos_poll_event(xos_event_t *event)
 	xos_component component;
 	uint16_t k_event;
 	k_mouse_status mouse;
+	k_keypress key;
 
 start:
 	window = 0;
@@ -124,6 +125,19 @@ start:
 
 			if(libxos_windows[window].components[event->component << 8] == COMPONENT_VSCROLL)
 				xos_handle_vscroll_event(window, (xos_vscroll_t*)((event->component << 8) + libxos_windows[window].components), &mouse);
+
+			return;
+		}
+
+		else if(k_event & K_KEYPRESS)
+		{
+			event->type = XOS_EVENT_KEYPRESS;
+			event->window = window;
+			event->component = 0;		// for now
+
+			k_read_key(&key);
+			event->kbd.character = key.character;
+			event->kbd.scancode = key.scancode;
 
 			return;
 		}

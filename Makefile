@@ -2,6 +2,7 @@
 all:
 	if [ ! -d "out" ]; then mkdir out; fi
 	if [ ! -d "out/libxos" ]; then mkdir out/libxos; fi
+	if [ ! -d "out/circus" ]; then mkdir out/circus; fi
 	dd if=/dev/zero bs=512 count=71568 of=disk.hdd
 	fasm kernel/boot/mbr.asm out/mbr.bin
 	fasm kernel/boot/boot_hdd.asm out/boot_hdd.bin
@@ -34,6 +35,11 @@ all:
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone helloc/helloc.c -o out/helloc.o
 	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/*.o out/helloc.o -o out/helloc.exe
 
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/main.c -o out/circus/main.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/load.c -o out/circus/load.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/parse.c -o out/circus/parse.o
+	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/*.o out/circus/*.o -o out/circus.exe
+
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
 	dd if=out/boot_hdd.bin conv=notrunc bs=512 seek=63 of=disk.hdd
 	dd if=out/rootnew.bin conv=notrunc bs=512 seek=64 of=disk.hdd
@@ -54,6 +60,8 @@ all:
 	dd if=out/fasm.exe conv=notrunc bs=512 seek=1400 of=disk.hdd
 	dd if=out/i8254x.sys conv=notrunc bs=512 seek=1311 of=disk.hdd
 	dd if=out/helloc.exe conv=notrunc bs=512 seek=1801 of=disk.hdd
+	dd if=out/circus.exe conv=notrunc bs=512 seek=1830 of=disk.hdd
+	dd if=circus/test.html conv=notrunc bs=512 seek=2000 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
@@ -69,6 +77,7 @@ runohci:
 
 clean:
 	if [ -d "out/libxos" ]; then rm out/libxos/*; rmdir out/libxos; fi
+	if [ -d "out/circus" ]; then rm out/circus/*; rmdir out/circus; fi
 	if [ -d "out" ]; then rm out/*; rmdir out; fi
 
 

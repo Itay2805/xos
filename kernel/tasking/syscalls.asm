@@ -4,7 +4,7 @@
 
 use32
 
-MAXIMUM_FUNCTION		= 0x0025
+MAXIMUM_FUNCTION		= 0x0027
 
 ; Function Table ;)
 align 16
@@ -47,6 +47,8 @@ api_table:
 	dd socket_close		; 0x0023
 	dd socket_read		; 0x0024
 	dd socket_write		; 0x0025
+	dd realloc		; 0x0026
+	dd kprint		; 0x0027
 
 ; syscall_init:
 ; Installs the kernel API interrupt vector
