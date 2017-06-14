@@ -108,7 +108,7 @@ net_init:
 .do_dhcp:
 	; get ourselves an IP address using DHCP with a timeout
 	inc [.dhcp_tries]
-	cmp [.dhcp_tries], 3
+	cmp [.dhcp_tries], 10
 	jge .dhcp_done
 
 	call dhcp_init

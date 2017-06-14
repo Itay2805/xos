@@ -25,7 +25,7 @@ network_notification:
 	mov [notification_handle], eax
 
 	mov eax, [notification_handle]
-	mov ebx, 0x404040
+	mov ebx, 0x101010
 	call xwidget_window_set_color
 
 	mov eax, [notification_handle]
