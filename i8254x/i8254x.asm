@@ -290,7 +290,19 @@ driver_reset:
 	mov eax, 0
 	mov [edi+I8254X_REG_RDBAH], eax
 
+	mov eax, [receive_buffer]
+	mov ebp, XOS_VIRTUAL_TO_PHYSICAL
+	int 0x61
+
+	mov edi, [rx_buffer]
+	stosd
+	mov eax, 0
+	stosd
+	stosd
+	stosd
+
 	; receive descriptor length
+	mov edi, [mmio]
 	mov eax, 32*16
 	mov [edi+I8254X_REG_RDLEN], eax
 
@@ -304,15 +316,6 @@ driver_reset:
 	; enable receive, store bad packets, broadcast
 	mov eax, 0x04008006
 	mov [edi+I8254X_REG_RCTL], eax
-
-	mov eax, [receive_buffer]
-	mov ebp, XOS_VIRTUAL_TO_PHYSICAL
-	int 0x61
-
-	mov edi, [rx_buffer]
-	stosd
-	;mov eax, 0
-	;stosd
 
 	; transmit descriptor base address
 	mov eax, [tx_buffer]
