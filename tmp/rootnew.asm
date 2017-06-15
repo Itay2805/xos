@@ -196,11 +196,25 @@ helloc:
 	.flags		db 0x01		; file present
 	.reserved:	times 13 db 0
 
+font:
+	.name		db "font.bin",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 1830
+	.size_sects	dd 8
+	.size_bytes	dd 4096
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
+
 circus:
 	.name		db "circus.exe",0
 			times 32 - ($-.name) db 0
 
-	.lba		dd 1830
+	.lba		dd 1840
 	.size_sects	dd 100
 	.size_bytes	dd 100*512
 	.time		db 10+12
@@ -216,7 +230,7 @@ test_html:
 
 	.lba		dd 2000
 	.size_sects	dd 1
-	.size_bytes	dd 42
+	.size_bytes	dd 113
 	.time		db 10+12
 			db 48
 	.date		db 2, 2

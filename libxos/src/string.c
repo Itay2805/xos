@@ -12,7 +12,7 @@
 // strlen:
 // Returns string length
 
-size_t strlen(char *string)
+size_t strlen(const char *string)
 {
 	size_t ret = 0;
 	while(string[0] != 0)
@@ -108,15 +108,28 @@ char *strcpy(char *dest, char *src)
 	if(!dest || !src)
 		return dest;
 
-	size_t size = strlen(src) + 1;
-	size_t count = 0;
-
-	while(count < size)
+	while(src[0] != 0)
 	{
-		dest[count] = src[count];
-		count++;
+		dest[0] = src[0];
+		dest++;
+		src++;
 	}
+
+	dest[0] = 0;
 
 	return dest;
 }
+
+// strcmp:
+// Compares strings
+
+int strcmp(const char *lhs, const char *rhs)
+{
+	size_t size = strlen(lhs);
+	if(size != strlen(rhs))
+		return 1;
+
+	return memcmp(lhs, rhs, size);
+}
+
 

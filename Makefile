@@ -38,6 +38,7 @@ all:
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/main.c -o out/circus/main.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/load.c -o out/circus/load.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/parse.c -o out/circus/parse.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/render.c -o out/circus/render.o
 	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/*.o out/circus/*.o -o out/circus.exe
 
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
@@ -60,7 +61,8 @@ all:
 	dd if=out/fasm.exe conv=notrunc bs=512 seek=1400 of=disk.hdd
 	dd if=out/i8254x.sys conv=notrunc bs=512 seek=1311 of=disk.hdd
 	dd if=out/helloc.exe conv=notrunc bs=512 seek=1801 of=disk.hdd
-	dd if=out/circus.exe conv=notrunc bs=512 seek=1830 of=disk.hdd
+	dd if=kernel/fonts/alotware.bin conv=notrunc bs=512 seek=1830 of=disk.hdd
+	dd if=out/circus.exe conv=notrunc bs=512 seek=1840 of=disk.hdd
 	dd if=circus/test.html conv=notrunc bs=512 seek=2000 of=disk.hdd
 
 run:

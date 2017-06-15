@@ -20,11 +20,13 @@ char homepage[] = "file:///C:/test.html";
 char idle_status_text[] = "Status: Idle.";
 char loading_status_text[] = "Status: Loading...";
 char parsing_status_text[] = "Status: Parsing...";
+char rendering_status_text[] = "Status: Rendering...";
 char missing_status_text[] = "Status: Unimplemented feature, idle.";
 char no_file_status_text[] = "Status: Requested file not found.";
 
 int handle_events();
 extern void load_page();
+extern uint8_t font[];
 
 // xos_main:
 // Entry point
@@ -64,6 +66,12 @@ int xos_main()
 	xos_unlock(window);
 	xos_redraw(window);
 
+	// load the font
+	int32_t file;
+	file = k_open("font.bin", FILE_READ);
+	k_read(file, 4096, font);
+	k_close(file);
+
 	// load the home page
 	load_page();
 
@@ -72,6 +80,9 @@ int xos_main()
 	// wait here for event
 	while(1)
 	{
+		strcpy(status_text, idle_status_text);
+		xos_redraw(window);
+
 		event = handle_events();
 		if(event == CIRCUS_CLOSE)
 		{

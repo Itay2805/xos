@@ -89,8 +89,7 @@ void xos_vscroll_set_max(xos_window window, xos_component component, uint32_t ma
 	vscroll = (xos_vscroll_t*)((component << 8) + libxos_windows[window].components);
 
 	vscroll->max_value = max;
-	if(vscroll->value > max)
-		vscroll->value = 0;
+	vscroll->value = 0;
 }
 
 // xos_vscroll_get_value:

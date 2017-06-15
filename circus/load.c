@@ -7,12 +7,14 @@
 #include <xos.h>
 #include <string.h>
 #include "parse.h"
+#include "render.h"
 
 extern xos_window window;
 extern char status_text[64];
 extern char current_uri[512];
 extern char idle_status_text[];
 extern char loading_status_text[];
+extern char rendering_status_text[];
 extern char parsing_status_text[];
 extern char missing_status_text[];
 extern char no_file_status_text[];
@@ -88,7 +90,7 @@ void load_local_page()
 
 	// okay, parse and render
 	k_close(file);
-	//render(parse(buffer, file_size));
+	render(parse(buffer, file_size));
 }
 
 

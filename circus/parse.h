@@ -19,7 +19,7 @@ typedef struct html_tag_t
 	uint8_t type;
 	size_t size;
 	char tag[64];
-} html_tag_t;
+}__attribute__((packed)) html_tag_t;
 
 typedef struct html_attribute_t
 {
@@ -27,20 +27,20 @@ typedef struct html_attribute_t
 	size_t size;
 	char attribute[64];
 	char content[512];
-} html_attribute_t;
+}__attribute__((packed)) html_attribute_t;
 
 typedef struct html_parse_text_t
 {
 	uint8_t type;
 	size_t size;
 	char text[];
-} html_text_t;
+}__attribute__((packed)) html_text_t;
 
 typedef struct html_parse_t
 {
 	uint8_t type;
 	size_t size;
-} html_parse_t;
+}__attribute__((packed)) html_parse_t;
 
 extern html_parse_t *parse(char *data, size_t size);
 
