@@ -42,7 +42,7 @@ SOCKET_FLAGS_PRESENT		= 0x01
 SOCKET_PROTOCOL_TCP		= 0
 SOCKET_PROTOCOL_UDP		= 1
 
-TCP_WINDOW			= 65535		; default window size for TCP
+TCP_WINDOW			= 32768		; default window size for TCP
 
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP

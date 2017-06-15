@@ -84,6 +84,12 @@ typedef struct k_screen
 	int16_t bpp;		// 04
 }__attribute__((packed)) k_screen;
 
+typedef struct k_http
+{
+	uint32_t response;
+	uint32_t size;
+}__attribute__((packed)) k_http;
+
 // Internal kernel functions - meant to be used internally by libxos
 extern int32_t k_create_window(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t flags, const char *title);
 extern void k_yield();
@@ -111,6 +117,8 @@ extern size_t k_write(int32_t handle, size_t count, void *buffer);
 extern void k_get_screen(k_screen *screen);
 
 extern void kprint(char *string);
+
+extern void k_http_get(char *uri, k_http *http);
 
 typedef struct libxos_internal_window
 {

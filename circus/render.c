@@ -26,7 +26,11 @@ size_t render_tree_size;
 uint8_t font[4096];
 short render_x, render_y, render_y_pos, render_x_pos;
 signed int render_bold_level = 0;
+signed int render_underline_level = 0;
 signed int render_visible = 0;
+int render_is_link = 0;
+unsigned int vscroll_max;
+char render_link_addr[512];
 
 void create_render_tree(html_parse_t *data);
 void draw_render_tree();
@@ -44,14 +48,17 @@ void render(html_parse_t *data)
 
 	create_render_tree(data);	// create the rendering tree
 
-	int vscroll_max = (render_y + 15) / 16;
-	if(vscroll_max == 0)
-		vscroll_max++;
+	if(render_y >= canvas_height)
+		vscroll_max = ((render_y + 31) / 32) + 3;
+	else
+		vscroll_max = 0;
 
-	xos_vscroll_set_max(window, vscroll, vscroll_max);	// update the scrollbar, which also sets it to zero
+	xos_vscroll_set_max(window, vscroll, vscroll_max);	// update the scrollbar, also sets its current value to zero
 	draw_render_tree();		// now render the screen
-
 	free(data);
+
+	strcpy(status_text, idle_status_text);
+	xos_redraw(window);
 }
 
 // create_render_tree:
@@ -59,12 +66,14 @@ void render(html_parse_t *data)
 
 void create_render_tree(html_parse_t *data)
 {
-	render_visible = 0;
-	render_bold_level = 0;
-
 	// free any memory used by previous rendering
 	if(render_tree != NULL)
 		free(render_tree);
+
+	render_visible = 0;
+	render_bold_level = 0;
+	render_underline_level = 0;
+	render_is_link = 0;
 
 	render_tree = malloc(RENDER_TREE_WINDOW);
 	render_tree_size = 0;
@@ -73,7 +82,10 @@ void create_render_tree(html_parse_t *data)
 
 	html_tag_t *tag;
 	html_text_t *text;
+	html_attribute_t *attribute;
+
 	render_op_text *op_text;
+	render_op_link *op_link;
 
 	while(data->type != HTML_PARSE_END)
 	{
@@ -108,10 +120,19 @@ void create_render_tree(html_parse_t *data)
 				else if(strcmp(tag->tag, "b") == 0)
 					render_bold_level++;
 
+				else if(strcmp(tag->tag, "u") == 0)
+					render_underline_level++;
+
 				else if(strcmp(tag->tag, "br") == 0)
 				{
 					render_x = 0;
 					render_y += 16;
+				}
+
+				else if(strcmp(tag->tag, "a") == 0)
+				{
+					memset(render_link_addr, 0, 512);
+					render_is_link = 1;
 				}
 
 				break;
@@ -136,6 +157,22 @@ void create_render_tree(html_parse_t *data)
 				else if(strcmp(tag->tag, "b") == 0)
 					render_bold_level--;
 
+				else if(strcmp(tag->tag, "u") == 0)
+					render_underline_level--;
+
+				else if(strcmp(tag->tag, "a") == 0)
+					render_is_link = 0;
+
+				break;
+
+			case HTML_PARSE_ATTRIBUTE:
+				attribute = (html_attribute_t*)data;
+
+				if(render_is_link == 1 && strcmp(attribute->attribute, "href") == 0)
+				{
+					strcpy(render_link_addr, attribute->value);
+				}
+
 				break;
 
 			case HTML_PARSE_TEXT:
@@ -147,22 +184,59 @@ void create_render_tree(html_parse_t *data)
 				if(strcmp(text->text, "\n") == 0 || strcmp(text->text, "\r") == 0)
 					break;
 
-				// okay, add text to the rendering...
-				op_text = (render_op_text*)(render_tree + render_tree_size);
-				op_text->op = RENDER_OP_TEXT;
-				op_text->size = strlen(text->text) + sizeof(render_op_text);
-				op_text->font_size = 1;
-				op_text->bg = 0xFFFFFFFF;
-				op_text->fg = 0x000000;
-				op_text->x = render_x;
-				op_text->y = render_y;
-				strcpy(op_text->text, text->text);
+				// is it a link a normal text?
+				if(render_is_link == 1)
+				{
+					// add the text of the link
+					op_text = (render_op_text*)(render_tree + render_tree_size);
+					op_text->op = RENDER_OP_TEXT;
+					op_text->size = strlen(text->text) + sizeof(render_op_text);
+					op_text->font_size = 1;
+					op_text->bg = 0xFFFFFFFF;
+					op_text->fg = 0x0000C0;
+					op_text->x = render_x;
+					op_text->y = render_y;
+					strcpy(op_text->text, text->text);
 
-				op_text->font_weight = render_bold_level;
+					op_text->font_weight = render_bold_level;
+					op_text->underline = 1;
 
-				render_tree_size += op_text->size;
-				//render_y += op_text->font_size << 4;	// *16
-				render_x += strlen(text->text) << 3;	// *8
+					render_tree_size += op_text->size;
+
+					// and the action of the link, of course
+					op_link = (render_op_link*)(render_tree + render_tree_size);
+					op_link->op = RENDER_OP_LINK;
+					op_link->size = strlen(render_link_addr) + sizeof(render_op_link);
+					op_link->x = render_x;
+					op_link->y = render_y;
+					op_link->endx = render_x + (strlen(render_link_addr) * op_text->font_size * 8);
+					op_link->endy = render_y + (op_text->font_size * 16);
+					strcpy(op_link->address, render_link_addr);
+
+					render_tree_size += op_link->size;
+
+					//render_y += op_text->font_size << 4;	// *16
+					render_x += strlen(text->text) << 3;	// *8
+				} else
+				{
+					// add text to the rendering
+					op_text = (render_op_text*)(render_tree + render_tree_size);
+					op_text->op = RENDER_OP_TEXT;
+					op_text->size = strlen(text->text) + sizeof(render_op_text);
+					op_text->font_size = 1;
+					op_text->bg = 0xFFFFFFFF;
+					op_text->fg = 0x000000;
+					op_text->x = render_x;
+					op_text->y = render_y;
+					strcpy(op_text->text, text->text);
+
+					op_text->font_weight = render_bold_level;
+					op_text->underline = render_underline_level;
+
+					render_tree_size += op_text->size;
+					//render_y += op_text->font_size << 4;	// *16
+					render_x += strlen(text->text) << 3;	// *8
+				}
 
 				if(render_x >= canvas_width)
 				{
@@ -180,6 +254,15 @@ void create_render_tree(html_parse_t *data)
 
 	unsigned char *end = (unsigned char*)render_tree + render_tree_size;
 	end[0] = RENDER_OP_END;
+	end[1] = 0;
+	end[2] = 0;
+	end[3] = 0;
+	end[4] = 0;
+
+	render_tree_size += 5;
+
+	// free the HTML parse result, we won't need it anymore
+	free(data);
 	return;
 }
 
@@ -202,7 +285,8 @@ void draw_render_tree()
 		{
 			case RENDER_OP_TEXT:
 				text = (render_op_text*)(render_tree + index);
-				if(text->y < render_y_pos)
+
+				if(text->y < render_y_pos || text->y > render_y_pos + canvas_height - 16)
 					break;
 
 				else
@@ -210,17 +294,17 @@ void draw_render_tree()
 
 				break;
 
+			case RENDER_OP_LINK:
+				break;
+
 			default:
 				// undefined render opcode, should not be possible but okay..
-				goto finish;
+				return;
 		}
 
 		size_t *size = (size_t*)(render_tree + index + 1);
 		index += size[0];
 	}
-
-finish:
-	xos_redraw(window);
 }
 
 // render_clear:
@@ -245,7 +329,6 @@ void render_clear(unsigned int color)
 void render_char(char character, short x, short y, render_op_text *formatting)
 {
 	unsigned int *offset = xos_canvas_get_buffer(window, canvas);
-	//offset += ((formatting->y + (formatting->font_size << 4)) * canvas_width) + ((formatting->x + (index << 3)) << 2);
 	offset += y * canvas_width;
 	offset += x;
 
@@ -267,6 +350,7 @@ void render_char(char character, short x, short y, render_op_text *formatting)
 	font_data[13] = font[(character << 4) + 13];
 	font_data[14] = font[(character << 4) + 14];
 	font_data[15] = font[(character << 4) + 15];
+	font_data[16] = 0;
 
 	int row = 0, column = 0;
 	int font_height = formatting->font_size << 4;	// *16
@@ -297,6 +381,18 @@ void render_char(char character, short x, short y, render_op_text *formatting)
 		font_byte = font_data[row];
 		offset += canvas_width;
 	}
+
+	if(formatting->underline > 0)
+	{
+		//offset += canvas_width;
+		size_t i = 0;
+
+		while(i < font_width)
+		{
+			offset[i] = formatting->fg;
+			i++;
+		}
+	}
 }
 
 // render_text:
@@ -307,12 +403,12 @@ void render_text(render_op_text *text)
 	char *string = text->text;
 	short index = 0;
 
-	short x = text->x;
-	short y = text->y;
+	short x = text->x - render_x_pos;
+	short y = text->y - render_y_pos;
 
 	while(string[index] >= 0x20 && string[index] <= 0x7F)
 	{
-		if(string[index] != '\r' && string[index] != '\n')
+		if(string[index] != '\r' && string[index] != '\n' && string[index] != '\t')
 		{
 			if(text->font_weight > 0)
 			{

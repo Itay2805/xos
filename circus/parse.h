@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define HTML_PARSE_WINDOW			32768
+#define HTML_PARSE_WINDOW			65536
 
 #define HTML_PARSE_OPEN_TAG			0x01
 #define HTML_PARSE_CLOSE_TAG			0x02
@@ -26,7 +26,7 @@ typedef struct html_attribute_t
 	uint8_t type;
 	size_t size;
 	char attribute[64];
-	char content[512];
+	char value[512];
 }__attribute__((packed)) html_attribute_t;
 
 typedef struct html_parse_text_t

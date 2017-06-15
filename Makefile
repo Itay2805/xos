@@ -39,6 +39,7 @@ all:
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/load.c -o out/circus/load.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/parse.c -o out/circus/parse.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/render.c -o out/circus/render.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/link.c -o out/circus/link.o
 	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/*.o out/circus/*.o -o out/circus.exe
 
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd
@@ -64,6 +65,7 @@ all:
 	dd if=kernel/fonts/alotware.bin conv=notrunc bs=512 seek=1830 of=disk.hdd
 	dd if=out/circus.exe conv=notrunc bs=512 seek=1840 of=disk.hdd
 	dd if=circus/test.html conv=notrunc bs=512 seek=2000 of=disk.hdd
+	dd if=circus/test2.html conv=notrunc bs=512 seek=2004 of=disk.hdd
 
 run:
 	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap

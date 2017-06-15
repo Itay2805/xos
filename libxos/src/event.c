@@ -20,6 +20,7 @@ xos_component xos_determine_component(xos_window window, k_mouse_status *mouse)
 	xos_label_t *label;
 	xos_button_t *button;
 	xos_vscroll_t *vscroll;
+	xos_canvas_t *canvas;
 	int16_t x, y, endx, endy;
 
 	while(component < LIBXOS_MAX_COMPONENTS)
@@ -51,6 +52,16 @@ xos_component xos_determine_component(xos_window window, k_mouse_status *mouse)
 				if(mouse->x >= x && mouse->x <= endx && mouse->y >= y && mouse->y <= endy)
 					return component;
 
+			case COMPONENT_CANVAS:
+				canvas = (xos_canvas_t*)((component << 8) + libxos_windows[window].components);
+				x = canvas->x;
+				y = canvas->y;
+				endx = x + canvas->width;
+				endy = y + canvas->height;
+
+				if(mouse->x >= x && mouse->x <= endx && mouse->y >= y && mouse->y <= endy)
+					return component;
+
 			default:
 				goto next_component;
 		}
@@ -74,6 +85,8 @@ void xos_poll_event(xos_event_t *event)
 	uint16_t k_event;
 	k_mouse_status mouse;
 	k_keypress key;
+
+	event->type = 0;
 
 start:
 	window = 0;

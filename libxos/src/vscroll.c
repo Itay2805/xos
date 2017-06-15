@@ -19,9 +19,6 @@ xos_component xos_create_vscroll(xos_window window, int16_t x, int16_t y, int16_
 	if(component == -1)
 		return -1;
 
-	if(!max)			// max value cannot be zero
-		return -1;
-
 	xos_vscroll_t *vscroll = (xos_vscroll_t*)((component << 8) + libxos_windows[window].components);
 
 	vscroll->component_type = COMPONENT_VSCROLL;

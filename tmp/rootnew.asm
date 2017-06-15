@@ -230,7 +230,7 @@ test_html:
 
 	.lba		dd 2000
 	.size_sects	dd 1
-	.size_bytes	dd 113
+	.size_bytes	dd 309
 	.time		db 10+12
 			db 48
 	.date		db 2, 2
@@ -238,4 +238,17 @@ test_html:
 	.flags		db 0x01		; file present
 	.reserved:	times 13 db 0
 
+test2_html:
+	.name		db "test2.html",0
+			times 32 - ($-.name) db 0
+
+	.lba		dd 2004
+	.size_sects	dd 1
+	.size_bytes	dd 319
+	.time		db 10+12
+			db 48
+	.date		db 2, 2
+	.year		dw 2017
+	.flags		db 0x01		; file present
+	.reserved:	times 13 db 0
 

@@ -423,5 +423,21 @@ kprint:
 	popa
 	ret
 
+; void k_http_get(char *uri, k_http *http);
+public k_http_get
+k_http_get:
+	pusha
+
+	mov esi, [esp+32+4]		; *uri
+	mov ebp, XOS_HTTP_GET
+	int 0x60
+
+	mov edi, [esp+32+8]		; *http
+	mov [edi], eax
+	mov [edi+4], ecx
+
+	popa
+	ret
+
 
 

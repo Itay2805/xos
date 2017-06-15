@@ -8,6 +8,7 @@
 #include <string.h>
 
 #define CIRCUS_CLOSE				1
+#define CIRCUS_SCROLL				2
 
 xos_window window, uri_window;
 xos_component back, forward, stop, uri, canvas, vscroll, hscroll, status;
@@ -22,11 +23,15 @@ char loading_status_text[] = "Status: Loading...";
 char parsing_status_text[] = "Status: Parsing...";
 char rendering_status_text[] = "Status: Rendering...";
 char missing_status_text[] = "Status: Unimplemented feature, idle.";
-char no_file_status_text[] = "Status: Requested file not found.";
+char no_file_status_text[] = "Status: Requested file not found, idle.";
+char no_protocol_status_text[] = "Status: Unsupported protocol, idle.";
+char no_content_status_text[] = "Status: Content is not text/html, idle.";
 
 int handle_events();
 extern void load_page();
 extern uint8_t font[];
+extern void draw_render_tree();
+extern int handle_canvas_event(short x, short y);
 
 // xos_main:
 // Entry point
@@ -51,7 +56,7 @@ int xos_main()
 	canvas_height = window_height - 32 - 24;
 
 	canvas = xos_create_canvas(window, 0, 32, canvas_width, canvas_height);
-	vscroll = xos_create_vscroll(window, window_width-16, 32, canvas_height, 1);
+	vscroll = xos_create_vscroll(window, window_width-16, 32, canvas_height, 0);
 
 	memset(status_text, 0, 64);
 	memset(current_uri, 0, 512);
@@ -80,9 +85,6 @@ int xos_main()
 	// wait here for event
 	while(1)
 	{
-		strcpy(status_text, idle_status_text);
-		xos_redraw(window);
-
 		event = handle_events();
 		if(event == CIRCUS_CLOSE)
 		{
@@ -102,6 +104,17 @@ int handle_events()
 
 	if(event.type == XOS_EVENT_CLOSE)
 		return CIRCUS_CLOSE;
+
+	else if(event.component == vscroll)
+	{
+		draw_render_tree();
+		return CIRCUS_SCROLL;
+	}
+
+	else if(event.type == XOS_EVENT_MOUSE_CLICK && event.component == canvas)
+	{
+		return handle_canvas_event(event.mouse_coords.x, event.mouse_coords.y - 32);
+	}
 
 	return 0;
 }

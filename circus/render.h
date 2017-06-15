@@ -8,9 +8,10 @@
 
 #include "parse.h"
 
-#define RENDER_TREE_WINDOW		32768
+#define RENDER_TREE_WINDOW		65536
 #define RENDER_OP_TEXT			0x01
 #define RENDER_OP_RECT			0x02
+#define RENDER_OP_LINK			0x03
 #define RENDER_OP_END			0xFF
 
 typedef struct render_op_text
@@ -20,9 +21,19 @@ typedef struct render_op_text
 	short x, y;
 	unsigned char font_size;
 	signed int font_weight;
+	signed int underline;
 	unsigned int bg, fg;
 	unsigned char text[];
 }__attribute__((packed)) render_op_text;
+
+typedef struct render_op_link
+{
+	unsigned char op;
+	size_t size;
+	short x, y;
+	short endx, endy;
+	unsigned char address[512];
+}__attribute__((packed)) render_op_link;
 
 typedef struct render_op_rect
 {
