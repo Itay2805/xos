@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define HTML_PARSE_WINDOW			65536
+#define HTML_PARSE_WINDOW			512*1024
 
 #define HTML_PARSE_OPEN_TAG			0x01
 #define HTML_PARSE_CLOSE_TAG			0x02

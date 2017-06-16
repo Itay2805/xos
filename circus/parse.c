@@ -273,18 +273,23 @@ void skip_comment(char *data)
 
 void parse_attributes(char *data)
 {
-	data++;
-	html_offset++;
+	//data++;
+	//html_offset++;
 
 	html_attribute_t *attribute;
 	size_t attribute_size = 0, attribute_value_size = 0;
 
-	while(data[0] != 0 && data[0] != '>' && data[0] != '/' && data[0] != '\n' && data[0] != '\r')
+	//while(data[0] != 0 && data[0] != '>' && data[0] != '/' && data[0] != '\n' && data[0] != '\r')
+	while(data[0] == ' ')
 	{
+		data++;
+		html_offset++;
+
 		// copy the attribute name
 		attribute = (html_attribute_t*)(parse_buffer + parse_buffer_size);
 		attribute->type = HTML_PARSE_ATTRIBUTE;
 		attribute->size = copy_attribute_name(data, attribute->attribute);
+		lowercase_string(attribute->attribute);
 		attribute_size = attribute->size;
 
 		html_offset += attribute_size - 1;

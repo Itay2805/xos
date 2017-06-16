@@ -18,7 +18,7 @@ use32
 ;	u32 ip;			// remote IP address
 ;	u16 source;		// source port
 ;	u16 dest;		// destination port
-;	u32 last_size;		// TCP: size of last transfer, unused for UDP
+;	u32 initial_seq;	// TCP: SEQ from initial SYN response, UDP: unused
 ;	u8 reserved[12];
 ; }
 ;
@@ -32,7 +32,7 @@ SOCKET_ACK			= 0x08
 SOCKET_IP			= 0x0C
 SOCKET_SOURCE			= 0x10
 SOCKET_DEST			= 0x12
-SOCKET_LAST_SIZE		= 0x14
+SOCKET_INITIAL_SEQ		= 0x14
 SOCKET_SIZE			= 0x20
 
 MAX_SOCKETS			= 512
@@ -42,12 +42,12 @@ SOCKET_FLAGS_PRESENT		= 0x01
 SOCKET_PROTOCOL_TCP		= 0
 SOCKET_PROTOCOL_UDP		= 1
 
-TCP_WINDOW			= 32768		; default window size for TCP
+TCP_WINDOW			= 48*1024	; default window size for TCP
 
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP
 
-SOCKET_TIMEOUT			= 0x80000
+SOCKET_TIMEOUT			= 0x280000
 
 align 4
 sockets				dd 0
@@ -129,7 +129,7 @@ socket_open:
 						; the actual window size will be returned by the server
 	mov dword[esi+SOCKET_SEQ], 0
 	mov dword[esi+SOCKET_ACK], 0
-	mov dword[esi+SOCKET_LAST_SIZE], 0
+	mov dword[esi+SOCKET_INITIAL_SEQ], 0
 
 	mov eax, [.ip]
 	mov [esi+SOCKET_IP], eax
@@ -251,38 +251,67 @@ socket_close:
 	call kmalloc
 	mov [.buffer], eax
 
-	; send a FIN+ACK packet
+	; send a FIN packet
 	mov eax, [.socket]
 	mov esi, 0
 	mov ecx, 0
 	mov dl, TCP_FIN or TCP_ACK
 	call socket_write
 
-	cmp eax, 0
-	jne .tcp_finish
+	;cmp eax, 0
+	;jne .tcp_finish
 
 	; wait for server's response --
-	; -- if it responds with FIN+ACK, we'll send ACK --
-	; -- if it responds with anything else or doesn't respond, we're finished
+	; -- it should response with FIN+ACK
+	mov [.wait_count], 0
+
+.tcp_wait_fin_ack:
+	inc [.wait_count]
+	cmp [.wait_count], 2
+	jg .tcp_finish
+
 	mov eax, [.socket]
 	mov edi, [.buffer]
 	call socket_read
 
 	cmp dl, 0xFF
-	je .tcp_finish
+	je .tcp_wait_fin_ack
 
 	test dl, TCP_FIN
-	jnz .tcp_send_ack
+	jz .tcp_wait_fin_ack
+
+	test dl, TCP_ACK
+	jz .tcp_wait_fin_ack
+
+	; okay, send ACK
+	mov eax, [.socket]
+	mov esi, 0
+	mov ecx, 0
+	mov dl, TCP_ACK
+	call socket_write
 
 	jmp .tcp_finish
 
-.tcp_send_ack:
+.tcp_fin:
+	test dl, TCP_ACK
+	jz .tcp_fin_ack
+
 	; send an ACK packet
 	mov eax, [.socket]
 	mov esi, 0
 	mov ecx, 0
 	mov dl, TCP_ACK
 	call socket_write
+	jmp .tcp_finish
+
+.tcp_fin_ack:
+	; send a FIN+ACK packet
+	mov eax, [.socket]
+	mov esi, 0
+	mov ecx, 0
+	mov dl, TCP_ACK or TCP_FIN
+	call socket_write
+	jmp .tcp_finish
 
 .tcp_finish:
 	; clear the socket handle
@@ -301,6 +330,7 @@ socket_close:
 align 4
 .socket				dd 0
 .buffer				dd 0
+.wait_count			dd 0
 
 .undefined_protocol		db "net-socket: cannot close socket with undefined protocol.",10,0
 
@@ -522,7 +552,9 @@ socket_read:
 	cmp al, TCP_PROTOCOL_TYPE
 	jne .receive_tcp_start
 
-	; okay, this is our packet
+	; this packet is for us, but it may or may not be in the correct order
+	; for simplicity, only accept packets sent in order
+	; most servers will resend them if we don't respond anyway
 	mov ax, [esi+2]
 	xchg al, ah
 	movzx eax, ax
@@ -531,6 +563,73 @@ socket_read:
 	add esi, IP_HEADER_SIZE		; to TCP header
 	mov [.tcp], esi
 
+	mov esi, [.tcp]
+	mov al, [esi+13]
+	test al, TCP_SYN		; did we receive a SYN packet?
+	jz .tcp_work
+
+	; yep -- save the initial sequence
+	mov esi, [.socket]
+	shl esi, 5
+	add esi, [sockets]
+	mov edi, [.tcp]
+	mov eax, [edi+4]		; SYN
+	bswap eax			; big endian
+	;inc eax
+	mov [esi+SOCKET_INITIAL_SEQ], eax
+
+.tcp_work:
+	mov esi, [.tcp]
+	mov al, [esi+13]
+	test al, TCP_SYN
+	jnz .tcp_copy_payload
+
+	; ensure it is in the correct order
+	; the SEQ of the packet has to be the ACK we last sent
+	mov esi, [.socket]
+	shl esi, 5
+	add esi, [sockets]
+	mov eax, [esi+SOCKET_ACK]
+	mov [.last_ack], eax
+	mov edi, [.tcp]
+	mov eax, [edi+4]
+	bswap eax
+	sub eax, [esi+SOCKET_INITIAL_SEQ]
+	mov ebx, [.last_ack]
+	sub ebx, [esi+SOCKET_INITIAL_SEQ]
+
+	;pusha
+	;call hex_dword_to_string
+	;call com1_send
+	;mov esi, newline
+	;call com1_send
+
+	;popa
+	;pusha
+	;mov eax, ebx
+	;call hex_dword_to_string
+	;call com1_send
+	;mov esi, newline
+	;call com1_send
+
+	;popa
+
+	sub eax, ebx
+	test eax, 0x80000000
+	jnz .tcp_seq_negative
+
+	jmp .tcp_check_seq
+
+.tcp_seq_negative:
+	not eax
+	inc eax
+
+.tcp_check_seq:
+	cmp eax, 1
+	jg .receive_tcp_start
+
+.tcp_copy_payload:
+	mov esi, [.tcp]
 	mov bl, [esi+12]
 	shr bl, 4
 	and bl, 0x0F
@@ -581,12 +680,14 @@ socket_read:
 .tcp_set_ack:
 	mov [esi+SOCKET_ACK], eax
 
+.tcp_finish:
 	; okay, we're finished
 	mov eax, [.payload_size]
 	mov esi, [.tcp]
 	mov cx, [esi+14]		; window size
 	xchg cl, ch
 	mov dl, [esi+13]		; TCP flags
+
 	ret
 
 .error_free:
@@ -612,6 +713,7 @@ align 4
 .tcp_header			dd 0
 .ack				dd 0
 .seq				dd 0
+.last_ack			dd 0
 
 .window				dw 0
 .flags				db 0

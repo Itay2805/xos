@@ -35,7 +35,7 @@ void load_page()
 
 	else
 	{
-		//return load_http_page();
+		return load_http_page();
 		strcpy(status_text, missing_status_text);
 		xos_redraw(window);
 	}

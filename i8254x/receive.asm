@@ -31,8 +31,8 @@ receive:
 	stosd
 	mov eax, 0
 	stosd
-	stosd
-	stosd
+	;stosd
+	;stosd
 
 	mov edi, [mmio]
 	mov eax, 0

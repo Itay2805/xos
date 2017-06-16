@@ -5,11 +5,13 @@
 use32
 
 ; HyperText Transfer Protocol
-HTTP_SOURCE_PORT			= 32768
 HTTP_DESTINATION_PORT			= 80
 HTTP_DEBUG_PORT				= 8080		; probably not needed..
 
 HTTP_INITIAL_SEQ			= 0x00000000
+
+align 2
+http_source_port			dw 32768
 
 http_get_string				db "GET "
 http_head_string			db "HEAD "
@@ -112,6 +114,8 @@ http_copy_path:
 ; Out\	EAX = Buffer, -1 on error
 
 http_head:
+	inc [http_source_port]
+
 	cmp [network_available], 1
 	jne .error
 
@@ -146,7 +150,8 @@ http_head:
 	; create a socket connection
 	mov al, SOCKET_PROTOCOL_TCP
 	mov ebx, [.ip]
-	mov edx, (HTTP_DESTINATION_PORT shl 16) or HTTP_SOURCE_PORT
+	mov edx, (HTTP_DESTINATION_PORT shl 16)
+	mov dx, [http_source_port]
 	call socket_open
 
 	cmp eax, -1
@@ -357,6 +362,8 @@ align 4
 ; Out\	ECX = Buffer size, including HTTP headers
 
 http_get:
+	inc [http_source_port]
+
 	cmp [network_available], 1
 	jne .error
 
@@ -391,7 +398,8 @@ http_get:
 	; create a socket connection
 	mov al, SOCKET_PROTOCOL_TCP
 	mov ebx, [.ip]
-	mov edx, (HTTP_DESTINATION_PORT shl 16) or HTTP_SOURCE_PORT
+	mov edx, (HTTP_DESTINATION_PORT shl 16)
+	mov dx, [http_source_port]
 	call socket_open
 
 	cmp eax, -1
@@ -492,9 +500,6 @@ http_get:
 	sub edi, [.request]
 	mov [.request_size], edi
 
-	mov esi, [.request]
-	call com1_send
-
 	; send the request
 	mov eax, [.socket]
 	mov esi, [.request]
@@ -502,27 +507,18 @@ http_get:
 	mov dl, TCP_PSH or TCP_ACK
 	call socket_write
 
-	cmp eax, 0
-	jne .error_close
+	;cmp eax, 0
+	;jne .error_close
 
 	; receive the response
 	mov [.response_size], 0
 	mov [.response_size2], 0
 
 .receive_loop:
-	mov eax, [.socket]
-	mov edi, [.response]
-	add edi, [.response_size]
-	call socket_read
-
-	pusha
-
-	add [.response_size], eax
-	add [.response_size2], eax
-
 	cmp [.response_size2], TCP_WINDOW-8192
-	jl .continue
+	jl .receive_work
 
+	; resize the working memory
 	mov eax, [.response]
 	mov ecx, [.response_size]
 	add ecx, TCP_WINDOW
@@ -531,9 +527,16 @@ http_get:
 
 	mov [.response_size2], 0
 
-.continue:
-	popa
+.receive_work:
+	mov eax, [.socket]
+	mov edi, [.response]
+	add edi, [.response_size]
+	call socket_read
 
+	add [.response_size], eax
+	add [.response_size2], eax
+
+	; check what's happening...
 	cmp dl, 0xFF
 	je .finish
 
@@ -560,23 +563,11 @@ http_get:
 	mov dl, TCP_ACK
 	call socket_write
 
-	cmp eax, 0
-	jne .error_close
+	;cmp eax, 0
+	;jne .error_close
 
 	jmp .receive_loop
 
-.check_finish:
-	cmp dl, 0xFF
-	je .finish
-
-	test dl, TCP_FIN
-	jnz .finish
-
-	test dl, TCP_PSH
-	jnz .psh_ack
-
-	test dl, TCP_ACK
-	jnz .receive_loop
 
 .finish:
 	mov eax, [.socket]
