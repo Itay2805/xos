@@ -45,9 +45,9 @@ transmit:
 
 	; transmit buffer
 	mov dx, [.transmit_start]
-	mov eax, 0
-	out dx, eax
-	call iowait
+	;mov eax, 0
+	;out dx, eax
+	;call iowait
 
 	mov eax, [.packet]
 	out dx, eax
@@ -57,7 +57,7 @@ transmit:
 	mov dx, [.transmit_status]
 	mov eax, [.size]
 	and eax, 0x1FFF		; size of packet, clear OWN bit which will clear all other bits
-	or eax, 2 shl 16	; threshold
+	;or eax, 2 shl 16	; threshold
 	out dx, eax
 	call iowait
 

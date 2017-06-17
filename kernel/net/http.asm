@@ -289,9 +289,13 @@ http_head:
 	jnz .finish
 
 	test dl, TCP_ACK
-	jnz .receive_loop
+	jnz .check_data
 
 	jmp .finish
+
+.check_data:
+	cmp eax, 0
+	je .receive_loop
 
 .psh_ack:
 	; ACK the data we received

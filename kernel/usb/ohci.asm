@@ -243,7 +243,7 @@ ohci_reset_controller:
 	mov edi, [.mmio]
 	mov dword[edi+OHCI_COMMAND], OHCI_COMMAND_OWNERSHIP_CHANGE
 
-	mov eax, 10
+	mov eax, 5
 	call pit_sleep
 
 	; save the frame interval to restore it after the reset
@@ -287,7 +287,7 @@ ohci_reset_controller:
 	or eax, 2 shl 6
 	mov [edi+OHCI_CONTROL], eax
 
-	mov eax, 10
+	mov eax, 5
 	call pit_sleep
 
 	; turn on power for the root hub
@@ -296,7 +296,7 @@ ohci_reset_controller:
 	or eax, OHCI_ROOT_STATUS_LPSC
 	mov [edi+OHCI_ROOT_STATUS], eax
 
-	mov eax, 20
+	mov eax, 5
 	call pit_sleep
 
 	; count the downstream ports of the root hub
@@ -322,7 +322,7 @@ ohci_reset_controller:
 
 	mov dword[edi], OHCI_PORT_SET_POWER
 
-	mov eax, 10
+	mov eax, 5
 	call pit_sleep
 
 	mov dword[edi], OHCI_PORT_RESET

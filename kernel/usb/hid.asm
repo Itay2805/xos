@@ -4,7 +4,7 @@
 
 use32
 
-USB_HID_DEFAULT_INTERVAL		= 10	; if the update interval is invalid..
+USB_HID_DEFAULT_INTERVAL		= 1	; if the update interval is invalid..
 USB_HID_DESCRIPTOR_SIZE			= 9	; size of HID descriptor
 
 ; USB HID-Specific Setup Requests
@@ -205,6 +205,10 @@ usb_hid_init_mouse:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	mov edx, 0
+	mov ebx, 10
+	div ebx
+	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -227,6 +231,10 @@ usb_hid_init_mouse:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	mov edx, 0
+	mov ebx, 10
+	div ebx
+	inc eax
 	mov [usb_mouse_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -645,6 +653,10 @@ usb_hid_init_keyboard:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	mov edx, 0
+	mov ebx, 10
+	div ebx
+	inc eax
 	mov [usb_keyboard_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]
@@ -667,6 +679,10 @@ usb_hid_init_keyboard:
 	; save interval
 	mov al, [esi+USB_ENDPOINT_INTERVAL]
 	and eax, 0xFF
+	mov edx, 0
+	mov ebx, 10
+	div ebx
+	inc eax
 	mov [usb_keyboard_interval], eax
 
 	mov al, [esi+USB_ENDPOINT_ADDRESS]

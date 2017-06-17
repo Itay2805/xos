@@ -13,6 +13,13 @@ use32
 receive:
 	mov [.buffer], ebx
 
+	mov esi, [rx_buffer]
+	mov ax, [esi+12]		; status
+	test ax, 3			; EOP | DD
+	jz .zero
+
+	and word[esi+12], not 3		; clear EOP and DD
+
 	mov ecx, 0
 	mov esi, [rx_buffer]
 	mov cx, [esi+8]		; length
@@ -41,6 +48,10 @@ receive:
 	mov [edi+I8254X_REG_RDT], eax
 
 	mov eax, [.length]
+	ret
+
+.zero:
+	mov eax, 0
 	ret
 
 align 4

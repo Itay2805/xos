@@ -47,7 +47,7 @@ TCP_WINDOW			= 48*1024	; default window size for TCP
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP
 
-SOCKET_TIMEOUT			= 0x280000
+SOCKET_TIMEOUT			= 1536
 
 align 4
 sockets				dd 0
@@ -509,9 +509,12 @@ socket_read:
 	jge .error_free
 
 .receive_tcp_loop:
+	;sti
+	;hlt
+
 	inc [.wait_loops]
 	cmp [.wait_loops], SOCKET_TIMEOUT
-	jge .error_free
+	jge .receive_tcp_start
 
 	mov edi, [.packet]
 	call net_receive
@@ -614,6 +617,9 @@ socket_read:
 
 	;popa
 
+	mov [.my_seq], ebx
+	mov [.receive_seq], eax
+
 	sub eax, ebx
 	test eax, 0x80000000
 	jnz .tcp_seq_negative
@@ -626,7 +632,25 @@ socket_read:
 
 .tcp_check_seq:
 	cmp eax, 1
-	jg .receive_tcp_start
+	jg .tcp_drop_packet
+
+	jmp .tcp_copy_payload
+
+.tcp_drop_packet:
+	mov esi, .tcp_drop_msg
+	call kprint
+	mov eax, [.my_seq]
+	call int_to_string
+	call kprint
+	mov esi, .tcp_drop_msg2
+	call kprint
+	mov eax, [.receive_seq]
+	call int_to_string
+	call kprint
+	mov esi, .tcp_drop_msg3
+	call kprint
+
+	jmp .receive_tcp_start
 
 .tcp_copy_payload:
 	mov esi, [.tcp]
@@ -688,6 +712,11 @@ socket_read:
 	xchg cl, ch
 	mov dl, [esi+13]		; TCP flags
 
+	pusha
+	mov eax, [.packet]
+	call kfree
+	popa
+
 	ret
 
 .error_free:
@@ -714,11 +743,16 @@ align 4
 .ack				dd 0
 .seq				dd 0
 .last_ack			dd 0
+.my_seq				dd 0
+.receive_seq			dd 0
 
 .window				dw 0
 .flags				db 0
 
 .undefined_protocol		db "net-socket: cannot read from socket with undefined protocol.",10,0
+.tcp_drop_msg			db "tcp: expected SEQ ",0
+.tcp_drop_msg2			db ", got SEQ ",0
+.tcp_drop_msg3			db ", dropping packet...",10,0
 
 
 

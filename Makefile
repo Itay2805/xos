@@ -68,16 +68,16 @@ all:
 	dd if=circus/test2.html conv=notrunc bs=512 seek=2004 of=disk.hdd
 
 run:
-	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
+	qemu-system-i386 -drive file=disk.hdd,format=raw -m 128 -vga std -serial stdio -usbdevice mouse -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
 
 runsata:
-	qemu-system-i386 -m 128 -vga std -serial stdio -device ahci,id=ahci -drive if=none,file=disk.hdd,id=xosdrive,format=raw -device ide-drive,drive=xosdrive,bus=ahci.0 -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
+	qemu-system-i386 -m 128 -vga std -serial stdio -device ahci,id=ahci -drive if=none,file=disk.hdd,id=xosdrive,format=raw -device ide-drive,drive=xosdrive,bus=ahci.0 -usbdevice mouse -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
 
 runusb:
-	qemu-system-i386 -m 128 -vga std -serial stdio -usbdevice disk:disk.hdd -usbdevice mouse -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
+	qemu-system-i386 -m 128 -vga std -serial stdio -usbdevice disk:disk.hdd -usbdevice mouse -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
 
 runohci:
-	qemu-system-i386 -m 128 -vga std -serial stdio -hda disk.hdd -device pci-ohci,id=usbohci -device usb-mouse,bus=usbohci.0 -device usb-kbd,bus=usbohci.0 -net nic,model=rtl8139 -net user -net dump,file=qemudump.pcap
+	qemu-system-i386 -m 128 -vga std -serial stdio -hda disk.hdd -device pci-ohci,id=usbohci -device usb-mouse,bus=usbohci.0 -device usb-kbd,bus=usbohci.0 -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
 
 clean:
 	if [ -d "out/libxos" ]; then rm out/libxos/*; rmdir out/libxos; fi

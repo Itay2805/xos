@@ -25,6 +25,7 @@ receive:
 .ok:
 	; clear the status
 	mov dx, [io]
+	add dx, RTL8139_INTERRUPT_STATUS
 	in ax, dx
 	and ax, RTL8139_INTERRUPT_RECEIVE_OK
 	out dx, ax
@@ -70,7 +71,5 @@ align 4
 .buffer				dd 0
 .size				dd 0
 
-
-.msg				db "receive",10,0
 
 

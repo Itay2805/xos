@@ -4,7 +4,7 @@
 
 use32
 
-TIMER_FREQUENCY			= 1000
+TIMER_FREQUENCY			= 100
 
 align 8
 timer_ticks			dd 0

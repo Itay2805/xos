@@ -213,7 +213,7 @@ uhci_reset_controller:
 	out dx, ax
 	call iowait
 
-	mov eax, 10
+	mov eax, 2
 	call pit_sleep
 
 	mov dx, [.io]
@@ -244,7 +244,7 @@ uhci_reset_controller:
 	out dx, ax
 	call iowait
 
-	mov eax, 30
+	mov eax, 5
 	call pit_sleep
 
 	mov dx, [.io]
@@ -287,7 +287,7 @@ uhci_reset_controller:
 	out dx, ax
 	call iowait
 
-	mov eax, 20
+	mov eax, 5
 	call pit_sleep
 
 	; end of reset --
@@ -321,7 +321,7 @@ uhci_reset_controller:
 	out dx, ax
 	call iowait
 
-	mov eax, 10
+	mov eax, 5
 	call pit_sleep
 
 	mov dx, [.io]
