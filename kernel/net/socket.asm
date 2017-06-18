@@ -99,9 +99,11 @@ socket_open:
 	;je .open_udp
 
 	; undefined protocol
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
 	call kprint
 
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	mov eax, -1
 	ret
 
@@ -125,8 +127,7 @@ socket_open:
 
 	mov byte[esi+SOCKET_FLAGS], SOCKET_FLAGS_PRESENT
 	mov byte[esi+SOCKET_PROTOCOL], SOCKET_PROTOCOL_TCP
-	mov word[esi+SOCKET_WINDOW], TCP_WINDOW	; default window size for TCP
-						; the actual window size will be returned by the server
+	mov word[esi+SOCKET_WINDOW], TCP_WINDOW
 	mov dword[esi+SOCKET_SEQ], 0
 	mov dword[esi+SOCKET_ACK], 0
 	mov dword[esi+SOCKET_INITIAL_SEQ], 0
@@ -242,8 +243,10 @@ socket_close:
 	;cmp al, SOCKET_PROTOCOL_UDP
 	;je .udp
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
 	call kprint
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	ret
 
 .tcp:
@@ -366,9 +369,11 @@ socket_write:
 	;cmp al, SOCKET_PROTOCOL_UDP
 	;je .write_udp
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
 	call kprint
 
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	mov eax, -1
 	ret
 
@@ -482,9 +487,11 @@ socket_read:
 	;cmp al, SOCKET_PROTOCOL_UDP
 	;je .read_udp
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
 	call kprint
 
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	mov eax, -1
 	ret
 
@@ -576,7 +583,7 @@ socket_read:
 	shl esi, 5
 	add esi, [sockets]
 	mov edi, [.tcp]
-	mov eax, [edi+4]		; SYN
+	mov eax, [edi+4]		; SEQ
 	bswap eax			; big endian
 	;inc eax
 	mov [esi+SOCKET_INITIAL_SEQ], eax
@@ -637,6 +644,8 @@ socket_read:
 	jmp .tcp_copy_payload
 
 .tcp_drop_packet:
+	; tell the log that we're dropping a packet
+	mov [kprint_type], KPRINT_TYPE_WARNING
 	mov esi, .tcp_drop_msg
 	call kprint
 	mov eax, [.my_seq]
@@ -650,6 +659,7 @@ socket_read:
 	mov esi, .tcp_drop_msg3
 	call kprint
 
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	jmp .receive_tcp_start
 
 .tcp_copy_payload:
