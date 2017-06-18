@@ -40,4 +40,9 @@ int xos_main()
 	return 0;
 }
 
+// xos_yield_handler:
+// Called every time the widget library is idle
 
+void xos_yield_handler()
+{
+}

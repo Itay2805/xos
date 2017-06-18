@@ -29,13 +29,14 @@ signed int render_bold_level = 0;
 signed int render_underline_level = 0;
 signed int render_visible = 0;
 int render_is_link = 0;
-unsigned int vscroll_max;
+unsigned int vscroll_max, vscroll_last;
 char render_link_addr[512];
 
 void create_render_tree(html_parse_t *data);
 void draw_render_tree();
 void render_clear(unsigned int color);
 void render_text(render_op_text *text);
+void text_get_end(render_op_text *text);
 
 // render:
 // Rendering core
@@ -54,11 +55,12 @@ void render(html_parse_t *data)
 		vscroll_max = 0;
 
 	xos_vscroll_set_max(window, vscroll, vscroll_max);	// update the scrollbar, also sets its current value to zero
-	draw_render_tree();		// now render the screen
-	free(data);
 
 	strcpy(status_text, idle_status_text);
-	xos_redraw(window);
+
+	vscroll_last = 0xFFFFFFFF;
+	draw_render_tree();		// now render the screen
+	free(data);
 }
 
 // create_render_tree:
@@ -135,6 +137,26 @@ void create_render_tree(html_parse_t *data)
 					render_is_link = 1;
 				}
 
+				else if(strcmp(tag->tag, "h1") == 0 || strcmp(tag->tag, "h2") == 0 || strcmp(tag->tag, "h3") == 0 || strcmp(tag->tag, "h4") == 0)
+				{
+					render_bold_level++;
+					render_x = 0;
+					render_y += 24;
+				}
+
+				else if(strcmp(tag->tag, "th") == 0)
+				{
+					render_bold_level++;
+					render_x = 0;
+					render_y += 16;
+				}
+
+				else if(strcmp(tag->tag, "td") == 0)
+				{
+					render_x = 0;
+					render_y += 16;
+				}
+
 				break;
 
 			case HTML_PARSE_CLOSE_TAG:		// handle close tags here
@@ -163,6 +185,20 @@ void create_render_tree(html_parse_t *data)
 				else if(strcmp(tag->tag, "a") == 0)
 					render_is_link = 0;
 
+				else if(strcmp(tag->tag, "h1") == 0 || strcmp(tag->tag, "h2") == 0 || strcmp(tag->tag, "h3") == 0 || strcmp(tag->tag, "h4") == 0)
+				{
+					render_bold_level--;
+					render_x = 0;
+					render_y += 24;
+				}
+
+				else if(strcmp(tag->tag, "th") == 0)
+				{
+					render_bold_level--;
+					render_x = 0;
+					render_y += 16;
+				}
+
 				break;
 
 			case HTML_PARSE_ATTRIBUTE:
@@ -181,8 +217,8 @@ void create_render_tree(html_parse_t *data)
 
 				// if it was just a newline or such, ignore the text
 				text = (html_text_t*)data;
-				if(strcmp(text->text, "\n") == 0 || strcmp(text->text, "\r") == 0)
-					break;
+				//if(strcmp(text->text, "\n") == 0 || strcmp(text->text, "\r") == 0)
+					//break;
 
 				// is it a link a normal text?
 				if(render_is_link == 1)
@@ -193,7 +229,7 @@ void create_render_tree(html_parse_t *data)
 					op_text->size = strlen(text->text) + sizeof(render_op_text);
 					op_text->font_size = 1;
 					op_text->bg = 0xFFFFFFFF;
-					op_text->fg = 0x0000C0;
+					op_text->fg = 0x0000B0;
 					op_text->x = render_x;
 					op_text->y = render_y;
 					strcpy(op_text->text, text->text);
@@ -209,14 +245,30 @@ void create_render_tree(html_parse_t *data)
 					op_link->size = strlen(render_link_addr) + sizeof(render_op_link);
 					op_link->x = render_x;
 					op_link->y = render_y;
-					op_link->endx = render_x + (strlen(render_link_addr) * op_text->font_size * 8);
-					op_link->endy = render_y + (op_text->font_size * 16);
+					op_link->endx = render_x + (strlen(op_text->text) * 8);
+					op_link->endy = render_y + 16;
 					strcpy(op_link->address, render_link_addr);
 
 					render_tree_size += op_link->size;
 
-					//render_y += op_text->font_size << 4;	// *16
-					render_x += strlen(text->text) << 3;	// *8
+					if(strlen(text->text) * 8 >= canvas_width)
+					{
+						render_y += (((strlen(text->text) * 8 + canvas_width-1)) / canvas_width) * 16;
+						render_y -= 16;
+						render_x += strlen(text->text) * 8;
+						while(render_x >= canvas_width)
+						{
+							render_x -= canvas_width;
+						}
+
+						if(render_x < 0)
+							render_x = 0;
+						else
+							render_x += 8;
+					} else
+					{
+						render_x += strlen(text->text) * 8;
+					}
 				} else
 				{
 					// add text to the rendering
@@ -234,14 +286,37 @@ void create_render_tree(html_parse_t *data)
 					op_text->underline = render_underline_level;
 
 					render_tree_size += op_text->size;
+
 					//render_y += op_text->font_size << 4;	// *16
-					render_x += strlen(text->text) << 3;	// *8
+					//render_x += strlen(text->text) << 3;	// *8
+
+					/*if(strlen(text->text) * 8 >= canvas_width)
+					{
+						render_y += (((strlen(text->text) * 8 + canvas_width-1)) / canvas_width) * 16;
+						render_y -= 16;
+						render_x += strlen(text->text) * 8;
+						while(render_x >= canvas_width)
+						{
+							render_x -= canvas_width;
+						}
+
+						if(render_x < 0)
+							render_x = 0;
+						else
+							render_x += 8;
+					} else
+					{
+						render_x += strlen(text->text) * 8;
+					}*/
+
+
+					text_get_end(op_text);
 				}
 
 				if(render_x >= canvas_width)
 				{
 					render_x = 0;
-					render_y += op_text->font_size << 4;	// *16
+					render_y += 16;
 				}
 				break;
 
@@ -272,7 +347,15 @@ void create_render_tree(html_parse_t *data)
 void draw_render_tree()
 {
 	render_x_pos = 0;
-	render_y_pos = xos_vscroll_get_value(window, vscroll) * 16;
+	unsigned int vscroll_val = xos_vscroll_get_value(window, vscroll);
+	if(vscroll_val == vscroll_last)
+		return;
+
+	render_y_pos = vscroll_val * 16;
+	vscroll_last = vscroll_val;
+
+	if(render_y_pos >= render_y)
+		return;
 
 	render_clear(0xFFFFFF);
 
@@ -299,12 +382,15 @@ void draw_render_tree()
 
 			default:
 				// undefined render opcode, should not be possible but okay..
+				xos_redraw(window);
 				return;
 		}
 
 		size_t *size = (size_t*)(render_tree + index + 1);
 		index += size[0];
 	}
+
+	xos_redraw(window);
 }
 
 // render_clear:
@@ -395,6 +481,31 @@ void render_char(char character, short x, short y, render_op_text *formatting)
 	}
 }
 
+// text_get_end:
+// Gets the end X/Y coords of text
+
+void text_get_end(render_op_text *text)
+{
+	char *string = text->text;
+	short index = 0;
+
+	while(string[index] >= 0x20 && string[index] <= 0x7F)
+	{
+		if(string[index] != '\r' && string[index] != '\n' && string[index] != '\t')
+		{
+			if(render_x >= canvas_width - 16)
+			{
+				render_x = 0;
+				render_y += 16;
+			}
+
+			render_x += 8;
+		}
+
+		index++;
+	}
+}
+
 // render_text:
 // Renders a string
 
@@ -410,6 +521,15 @@ void render_text(render_op_text *text)
 	{
 		if(string[index] != '\r' && string[index] != '\n' && string[index] != '\t')
 		{
+			if(x >= canvas_width - 16)
+			{
+				x = 0;
+				y += 16;
+			}
+
+			if(y >= canvas_height - 16)
+				return;
+
 			if(text->font_weight > 0)
 			{
 				render_char(string[index], x, y, text);
@@ -427,8 +547,5 @@ void render_text(render_op_text *text)
 		index++;
 	}
 }
-
-
-
 
 

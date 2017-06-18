@@ -18,22 +18,22 @@ typedef struct html_tag_t
 {
 	uint8_t type;
 	size_t size;
-	char tag[64];
+	unsigned char tag[64];
 }__attribute__((packed)) html_tag_t;
 
 typedef struct html_attribute_t
 {
 	uint8_t type;
 	size_t size;
-	char attribute[64];
-	char value[512];
+	unsigned char attribute[64];
+	unsigned char value[512];
 }__attribute__((packed)) html_attribute_t;
 
 typedef struct html_parse_text_t
 {
 	uint8_t type;
 	size_t size;
-	char text[];
+	unsigned char text[];
 }__attribute__((packed)) html_text_t;
 
 typedef struct html_parse_t
@@ -42,6 +42,6 @@ typedef struct html_parse_t
 	size_t size;
 }__attribute__((packed)) html_parse_t;
 
-extern html_parse_t *parse(char *data, size_t size);
+extern html_parse_t *parse(unsigned char *data, size_t size);
 
 

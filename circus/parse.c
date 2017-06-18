@@ -22,20 +22,25 @@ html_parse_t *parse_buffer;
 size_t parse_buffer_size;
 size_t html_offset;
 
-void parse_tag(char *data, size_t size);
-void parse_attributes(char *data);
-void skip_comment(char *data);
+void parse_tag(unsigned char *data, size_t size);
+void parse_attributes(unsigned char *data);
+void skip_comment(unsigned char *data);
 
 // copy_text:
 // Copies text, returns size of copied text including NULL terminator
 
-size_t copy_text(char *html, char *buffer)
+size_t copy_text(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '<')
+	while(html[i] != 0 && html[i] != '<' && html[i] >= 0x20 && html[i] <= 0x7F)
 	{
-		buffer[i] = html[i];
+		if(html[i] == 0xA0)
+			buffer[i] = ' ';
+
+		else
+			buffer[i] = html[i];
+
 		i++;
 	}
 
@@ -46,7 +51,7 @@ size_t copy_text(char *html, char *buffer)
 // copy_tag:
 // Copies HTML tag, returns size of total copied text including NULL terminator
 
-size_t copy_tag(char *html, char *buffer)
+size_t copy_tag(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
@@ -63,7 +68,7 @@ size_t copy_tag(char *html, char *buffer)
 // copy_attribute_name:
 // Copies the name of an attribute
 
-size_t copy_attribute_name(char *html, char *buffer)
+size_t copy_attribute_name(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
@@ -80,7 +85,7 @@ size_t copy_attribute_name(char *html, char *buffer)
 // copy_attribute_dq:
 // Copies content of an attribute, surround by double quotes
 
-size_t copy_attribute_dq(char *html, char *buffer)
+size_t copy_attribute_dq(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
@@ -94,12 +99,46 @@ size_t copy_attribute_dq(char *html, char *buffer)
 	return strlen(buffer) + 1;
 }
 
+// copy_attribute_sq:
+// Copies content of attribute, surrounded by single quotes
+
+size_t copy_attribute_sq(unsigned char *html, unsigned char *buffer)
+{
+	size_t i = 0;
+
+	while(html[i] != 0 && html[i] != '\'' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	{
+		buffer[i] = html[i];
+		i++;
+	}
+
+	buffer[i] = 0;
+	return strlen(buffer) + 1;
+}
+
+// copy_attribute_nq:
+// Copies content of attribute, not surrounded by quotes
+
+size_t copy_attribute_nq(unsigned char *html, unsigned char *buffer)
+{
+	size_t i = 0;
+
+	while(html[i] != 0 && html[i] != ' ' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	{
+		buffer[i] = html[i];
+		i++;
+	}
+
+	buffer[i] = 0;
+	return strlen(buffer) + 1;
+}
+
 // lowercase_string:
 // Changes all characters in a string to lowercase
 
-void lowercase_string(char *string)
+void lowercase_string(unsigned char *string)
 {
-	char *end_string = (char*)string + strlen(string);
+	unsigned char *end_string = (unsigned char*)string + strlen(string);
 
 	while(string < end_string)
 	{
@@ -113,9 +152,9 @@ void lowercase_string(char *string)
 // remove_newlines:
 // Removes newlines from a file
 
-size_t remove_newlines(char *data, size_t size)
+size_t remove_newlines(unsigned char *data, size_t size)
 {
-	size_t count = 0;
+/*	size_t count = 0;
 	size_t index = 0;
 
 	char *data2 = malloc(size);
@@ -139,13 +178,24 @@ size_t remove_newlines(char *data, size_t size)
 
 	memcpy(data, data2, new_data_size+1);
 	free(data2);
-	return new_data_size;
+	return new_data_size;*/
+
+	size_t count = 0;
+	while(count < size)
+	{
+		if(data[count] == '\n' || data[count] == '\r' || data[count] == '\t')
+			data[count] = 0xA0;		// non-breaking space
+
+		count++;
+	}
+
+	return count;
 }
 
 // parse:
 // Main parser
 
-html_parse_t *parse(char *data, size_t size)
+html_parse_t *parse(unsigned char *data, size_t size)
 {
 	// update status
 	strcpy(status_text, parsing_status_text);
@@ -167,7 +217,13 @@ html_parse_t *parse(char *data, size_t size)
 		if(data[html_offset] == 0)
 			goto finish;
 
-		else if(data[html_offset] == '<' && data[html_offset+1] == '!')
+		//while(data[html_offset] == ' ' || data[html_offset] == '\n' || data[html_offset] == '\r' || data[html_offset] == 0xA0)
+		while(data[html_offset] < 0x20 || data[html_offset] > 0x7F)
+		{
+			html_offset++;
+		}
+
+		if(data[html_offset] == '<' && data[html_offset+1] == '!')
 			skip_comment(data + html_offset);
 
 		else if(data[html_offset] == '<')
@@ -204,7 +260,7 @@ finish:
 // parse_tag:
 // Parses a tag
 
-void parse_tag(char *data, size_t size)
+void parse_tag(unsigned char *data, size_t size)
 {
 	html_tag_t *tag;
 	size_t tag_size;
@@ -249,7 +305,7 @@ void parse_tag(char *data, size_t size)
 // skip_comment:
 // Skips over a comment
 
-void skip_comment(char *data)
+void skip_comment(unsigned char *data)
 {
 	size_t i = 0;
 
@@ -271,7 +327,7 @@ void skip_comment(char *data)
 // parse_attributes:
 // Parses attributes of a tag
 
-void parse_attributes(char *data)
+void parse_attributes(unsigned char *data)
 {
 	//data++;
 	//html_offset++;
@@ -280,10 +336,18 @@ void parse_attributes(char *data)
 	size_t attribute_size = 0, attribute_value_size = 0;
 
 	//while(data[0] != 0 && data[0] != '>' && data[0] != '/' && data[0] != '\n' && data[0] != '\r')
-	while(data[0] == ' ')
+	while(data[0] == ' ' || data[0] == '\r' || data[0] == '\n' || data[0] == 0xA0)
 	{
-		data++;
-		html_offset++;
+		while(data[0] == ' ' || data[0] == '\r' || data[0] == '\n' || data[0] == 0xA0)
+		{
+			data++;
+			html_offset++;
+			if(data[0] == '>')
+				break;
+		}
+
+		//data++;
+		//html_offset++;
 
 		// copy the attribute name
 		attribute = (html_attribute_t*)(parse_buffer + parse_buffer_size);
@@ -310,12 +374,30 @@ void parse_attributes(char *data)
 				html_offset += attribute_value_size;
 				data += attribute_value_size;
 			}
+
+			else if(data[0] == '\'')
+			{
+				data++;
+				html_offset++;
+				attribute_value_size = copy_attribute_sq(data, attribute->value);
+				attribute->size += attribute_value_size;
+
+				html_offset += attribute_value_size;
+				data += attribute_value_size;
+			}
+
+			else
+			{
+				attribute_value_size = copy_attribute_nq(data, attribute->value);
+				attribute->size += attribute_value_size;
+
+				html_offset += attribute_value_size - 1;
+				data += attribute_value_size - 1;
+			}
 		}
 
 		attribute->size += sizeof(html_parse_t);
 		parse_buffer_size += attribute->size;
-
-		continue;
 	}
 
 	if(data[0] == '>')

@@ -512,7 +512,7 @@ socket_read:
 .receive_tcp_start:
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], SOCKET_TIMEOUT/4
+	cmp [.packet_count], SOCKET_TIMEOUT/3
 	jge .error_free
 
 .receive_tcp_loop:

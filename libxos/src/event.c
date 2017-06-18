@@ -11,6 +11,8 @@
 #include <string.h>
 #include "component.h"
 
+extern void xos_yield_handler();	// called every time the library is idle
+
 // xos_determine_component:
 // Determines the component from the mouse position
 
@@ -160,6 +162,7 @@ start:
 	}
 
 	// no event, wait again
+	xos_yield_handler();
 	k_yield();
 	goto start;
 }
@@ -174,6 +177,9 @@ void xos_check_event(xos_event_t *event)
 	xos_component component;
 	uint16_t k_event;
 	k_mouse_status mouse;
+	k_keypress key;
+
+	event->type = 0;
 
 start:
 	window = 0;
@@ -199,11 +205,46 @@ start:
 			event->window = window;
 
 			k_read_mouse(libxos_windows[window].k_window, &mouse);
+
+			libxos_windows[window].initial_click.x = mouse.x;
+			libxos_windows[window].initial_click.y = mouse.y;
+
 			event->mouse_coords.x = mouse.x;
 			event->mouse_coords.y = mouse.y;
 
 			// run through each component, check if any was clicked
 			event->component = xos_determine_component(window, &mouse);
+			return;
+		}
+
+		else if(k_event & K_DRAG)
+		{
+			event->type = XOS_EVENT_DRAG;
+			event->window = window;
+
+			k_read_mouse(libxos_windows[window].k_window, &mouse);
+			event->mouse_coords.x = mouse.x;
+			event->mouse_coords.y = mouse.y;
+
+			// run through each component, check if any was dragged
+			event->component = xos_determine_component(window, &mouse);
+
+			if(libxos_windows[window].components[event->component << 8] == COMPONENT_VSCROLL)
+				xos_handle_vscroll_event(window, (xos_vscroll_t*)((event->component << 8) + libxos_windows[window].components), &mouse);
+
+			return;
+		}
+
+		else if(k_event & K_KEYPRESS)
+		{
+			event->type = XOS_EVENT_KEYPRESS;
+			event->window = window;
+			event->component = 0;		// for now
+
+			k_read_key(&key);
+			event->kbd.character = key.character;
+			event->kbd.scancode = key.scancode;
+
 			return;
 		}
 

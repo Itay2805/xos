@@ -230,7 +230,7 @@ test_html:
 
 	.lba		dd 2000
 	.size_sects	dd 1
-	.size_bytes	dd 309
+	.size_bytes	dd 322
 	.time		db 10+12
 			db 48
 	.date		db 2, 2
@@ -244,7 +244,7 @@ test2_html:
 
 	.lba		dd 2004
 	.size_sects	dd 1
-	.size_bytes	dd 319
+	.size_bytes	dd 310
 	.time		db 10+12
 			db 48
 	.date		db 2, 2

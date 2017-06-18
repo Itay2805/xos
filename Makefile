@@ -40,6 +40,7 @@ all:
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/parse.c -o out/circus/parse.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/render.c -o out/circus/render.o
 	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/link.c -o out/circus/link.o
+	gcc -c -Ilibxos/include -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone circus/http_chunk.c -o out/circus/http_chunk.o
 	gcc -m32 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -T libxos/link.ld out/libxos/*.o out/circus/*.o -o out/circus.exe
 
 	dd if=out/mbr.bin conv=notrunc bs=512 count=1 of=disk.hdd

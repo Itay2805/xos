@@ -13,10 +13,11 @@
 xos_window window, uri_window;
 xos_component back, forward, stop, uri, canvas, vscroll, hscroll, status;
 short window_width, window_height, canvas_width, canvas_height;
+int yield_times = 0;
 
 char status_text[64];
 char current_uri[512];
-char homepage[] = "file:///C:/test.html";
+char homepage[] = "http://forum.osdev.org/";
 
 char idle_status_text[] = "Status: Idle.";
 char loading_status_text[] = "Status: Loading...";
@@ -86,6 +87,7 @@ int xos_main()
 	while(1)
 	{
 		event = handle_events();
+
 		if(event == CIRCUS_CLOSE)
 		{
 			xos_destroy_window(window);
@@ -102,22 +104,35 @@ int handle_events()
 	xos_event_t event;
 	xos_poll_event(&event);
 
-	if(event.type == XOS_EVENT_CLOSE)
+	if(event.type == XOS_EVENT_NONE)
+		return 0;
+
+	else if(event.type == XOS_EVENT_CLOSE)
 		return CIRCUS_CLOSE;
 
-	else if(event.component == vscroll)
+	else if(event.type == XOS_EVENT_DRAG && event.component == vscroll)
 	{
-		draw_render_tree();
+		yield_times = 0;
 		return CIRCUS_SCROLL;
 	}
 
 	else if(event.type == XOS_EVENT_MOUSE_CLICK && event.component == canvas)
-	{
 		return handle_canvas_event(event.mouse_coords.x, event.mouse_coords.y - 32);
-	}
 
 	return 0;
 }
 
+// xos_yield_handler:
+// Called every time the widget library is idle
+
+void xos_yield_handler()
+{
+	yield_times++;
+	if(yield_times >= 10)
+	{
+		draw_render_tree();
+		yield_times = 0;
+	}
+}
 
 

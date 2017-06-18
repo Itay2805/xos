@@ -20,15 +20,19 @@ extern char missing_status_text[];
 extern char no_file_status_text[];
 extern char no_protocol_status_text[];
 extern char no_content_status_text[];
+extern int yield_times;
 
 void load_local_page();
 void load_http_page();
+extern void *http_decode_chunk(char *data, size_t response_size, size_t *final_size);
 
 // load_page:
 // Loads a page, as specified by current_uri
 
 void load_page()
 {
+	yield_times = 0;
+
 	// check if we're using local file or remote file
 	if(memcmp(current_uri, "file://", 7) == 0)
 		return load_local_page();
@@ -159,26 +163,28 @@ void load_http_page()
 
 	// okay we know it's HTML, now search for the transfer encoding type
 	http_response = (char*)kernel_http_response.response;
+	char *http_decoded_response;
 	while(1)
 	{
 		if(memcmp(http_response, "Transfer-Encoding: chunked", 26) == 0)
 		{
-			//http_response = (char*)kernel_http_response.response;
-			//size = http_decode_chunk(http_response);
-			//break;
+			http_response = (char*)kernel_http_response.response;
+			http_decoded_response = http_decode_chunk(http_response, kernel_http_response.size, &size);
+			free(http_response);
+			break;
 		}
 
 		http_response++;
 		if(http_response >= end_http_header)
 		{
-			http_response = (char*)kernel_http_response.response;
+			http_decoded_response = (char*)end_http_header + 4;
 			size = kernel_http_response.size;
 			break;
 		}
 	}
 
 	// parse and render
-	render(parse(end_http_header + 4, size));
+	render(parse(http_decoded_response, size));
 }
 
 

@@ -126,10 +126,11 @@ char *strcpy(char *dest, char *src)
 int strcmp(const char *lhs, const char *rhs)
 {
 	size_t size = strlen(lhs);
-	if(size != strlen(rhs))
+	if(strlen(rhs) != size)
 		return 1;
 
-	return memcmp(lhs, rhs, size);
+	else
+		return memcmp(lhs, rhs, size);
 }
 
 
