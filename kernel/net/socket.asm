@@ -47,7 +47,7 @@ TCP_WINDOW			= 48*1024	; default window size for TCP
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP
 
-SOCKET_TIMEOUT			= 1536
+SOCKET_TIMEOUT			= 2048
 
 align 4
 sockets				dd 0
@@ -505,7 +505,7 @@ socket_read:
 .receive_tcp_start:
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], SOCKET_TIMEOUT
+	cmp [.packet_count], SOCKET_TIMEOUT/4
 	jge .error_free
 
 .receive_tcp_loop:
@@ -750,8 +750,8 @@ align 4
 .flags				db 0
 
 .undefined_protocol		db "net-socket: cannot read from socket with undefined protocol.",10,0
-.tcp_drop_msg			db "tcp: expected SEQ ",0
-.tcp_drop_msg2			db ", got SEQ ",0
+.tcp_drop_msg			db "net-tcp: expected SEQ ",0
+.tcp_drop_msg2			db " but got SEQ ",0
 .tcp_drop_msg3			db ", dropping packet...",10,0
 
 

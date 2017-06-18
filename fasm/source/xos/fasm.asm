@@ -129,6 +129,9 @@ main:
 	cmp eax, XWIDGET_BUTTON
 	jne .idle
 
+	cmp ebx, [assemble_handle]
+	jne .idle
+
 	jmp .assemble
 
 .close:

@@ -38,6 +38,7 @@ receive:
 
 	; okay, copy the packet
 	movzx ecx, word[esi]		; packet size
+	sub ecx, 4
 	mov [.size], ecx
 	add esi, 2			; actual packet
 	mov edi, [.buffer]
@@ -50,10 +51,9 @@ receive:
 	cmp ax, 0xF000			; 60 KB
 	jge .reset			; yep - reset the descriptor before we overflow
 
-	and eax, 0xFFFF
-	mov ebx, [rx_buffer]
-	add ebx, eax
-	mov [rx_buffer_current], ebx
+	mov eax, [.size]
+	add eax, 4
+	add [rx_buffer_current], eax
 
 	mov eax, [.size]
 	ret

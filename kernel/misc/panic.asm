@@ -186,6 +186,8 @@ exception_handler:
 	cli
 	call save_regs
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
+
 	; if the error was caused in userspace, make a register dump and kill the process
 	; else, make a kernel panic and freeze the system
 	cmp [current_task], 0
@@ -235,11 +237,13 @@ exception_handler:
 	mov esi, .terminating_msg
 	call kprint
 
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	call terminate
 
 .kernel:
 	call use_front_buffer
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov [debug_mode],1
 
 	mov ebx, 0
@@ -301,6 +305,7 @@ panic:
 	call save_regs
 	call use_front_buffer
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov [debug_mode], 1
 
 	mov ebx, 0
@@ -377,6 +382,8 @@ save_regs:
 ; Dumps registers
 
 dump_regs:
+	mov [kprint_type], KPRINT_TYPE_ERROR
+
 	mov esi, .msg
 	call kprint
 
@@ -528,6 +535,7 @@ dump_regs:
 early_boot_error:
 	cli
 
+	mov [kprint_type], KPRINT_TYPE_ERROR
 	call kprint
 
 	mov [.string], esi

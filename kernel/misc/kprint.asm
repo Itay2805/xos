@@ -7,6 +7,11 @@ use32
 com1_port			dw 0
 com1_last_byte			db 0
 debug_mode			db 0	; when system is in debug mode, kprint puts things on the screen
+kprint_type			db KPRINT_TYPE_NORMAL
+
+KPRINT_TYPE_NORMAL		= 0
+KPRINT_TYPE_ERROR		= 1
+KPRINT_TYPE_WARNING		= 2
 
 ; com1_detect:
 ; Detects the COM1 serial port
@@ -85,6 +90,8 @@ com1_wait:
 com1_send_byte:
 	pusha
 
+	mov [com1_last_byte], al
+
 	cmp [debug_mode], 1
 	jne .send
 
@@ -102,15 +109,14 @@ com1_send_byte:
 	je .newline
 	cmp al, 13
 	je .done
-	cmp al, 0x7F
-	jg .done
-	cmp al, 0x20
-	jl .done
+	;cmp al, 0x7F
+	;jg .done
+	;cmp al, 0x20
+	;jl .done
 
 	call com1_wait
 	mov dx, [com1_port]
 	out dx, al
-	mov [com1_last_byte], al
 
 .done:
 	popa
@@ -167,7 +173,29 @@ kprint:
 	ret
 
 .timestamp:
+	cmp [kprint_type], KPRINT_TYPE_ERROR
+	je .error
+
+	cmp [kprint_type], KPRINT_TYPE_WARNING
+	je .warning
+
+.normal:
 	push esi
+	mov al, 0x1B
+	call com1_send_byte
+	mov al, '['
+	call com1_send_byte
+	mov al, '1'
+	call com1_send_byte
+	mov al, ';'
+	call com1_send_byte
+	mov al, '3'
+	call com1_send_byte
+	mov al, '4'
+	call com1_send_byte
+	mov al, 'm'
+	call com1_send_byte
+
 	mov al, '['
 	call com1_send_byte
 
@@ -177,6 +205,73 @@ kprint:
 
 	mov al, ']'
 	call com1_send_byte
+	jmp .send
+
+.error:
+	push esi
+	mov al, 0x1B
+	call com1_send_byte
+	mov al, '['
+	call com1_send_byte
+	mov al, '1'
+	call com1_send_byte
+	mov al, ';'
+	call com1_send_byte
+	mov al, '3'
+	call com1_send_byte
+	mov al, '1'
+	call com1_send_byte
+	mov al, 'm'
+	call com1_send_byte
+
+	mov al, '['
+	call com1_send_byte
+
+	mov eax, [timer_ticks]
+	call hex_dword_to_string
+	call com1_send
+
+	mov al, ']'
+	call com1_send_byte
+	jmp .send
+
+.warning:
+	push esi
+	mov al, 0x1B
+	call com1_send_byte
+	mov al, '['
+	call com1_send_byte
+	mov al, '1'
+	call com1_send_byte
+	mov al, ';'
+	call com1_send_byte
+	mov al, '3'
+	call com1_send_byte
+	mov al, '3'
+	call com1_send_byte
+	mov al, 'm'
+	call com1_send_byte
+
+	mov al, '['
+	call com1_send_byte
+
+	mov eax, [timer_ticks]
+	call hex_dword_to_string
+	call com1_send
+
+	mov al, ']'
+	call com1_send_byte
+
+.send:
+	mov al, 0x1B
+	call com1_send_byte
+	mov al, '['
+	call com1_send_byte
+	mov al, '0'
+	call com1_send_byte
+	mov al, 'm'
+	call com1_send_byte
+
 	mov al, ' '
 	call com1_send_byte
 

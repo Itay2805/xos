@@ -121,8 +121,10 @@ acpi_init:
 	jmp .ps2
 
 .ps2_old_fadt:
+	mov [kprint_type], KPRINT_TYPE_WARNING
 	mov esi, .ps2_old_fadt_msg
 	call kprint
+	mov [kprint_type], KPRINT_TYPE_NORMAL
 	mov [ps2_present], 1
 	ret
 

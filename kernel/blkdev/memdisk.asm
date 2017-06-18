@@ -102,8 +102,8 @@ memdisk_detect:
 	ret
 
 .no_memdisk:
-	mov esi, .no_memdisk_msg
-	call kprint
+	;mov esi, .no_memdisk_msg
+	;call kprint
 
 	wbinvd
 	mov eax, cr0
