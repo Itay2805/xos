@@ -8,7 +8,7 @@
 
 #include "parse.h"
 
-#define RENDER_TREE_WINDOW		512*1024
+#define RENDER_TREE_WINDOW		1024*1024
 #define RENDER_OP_TEXT			0x01
 #define RENDER_OP_RECT			0x02
 #define RENDER_OP_LINK			0x03

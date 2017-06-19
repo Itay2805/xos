@@ -277,6 +277,11 @@ driver_reset:
 	;out dx, ax
 	;call iowait
 
+	mov dx, [io]
+	add dx, RTL8139_RX_CURRENT_ADDRESS
+	in ax, dx
+	mov [rx_address], ax
+
 	; configure the transmitter
 	mov [transmit_descriptor], 3
 
@@ -375,6 +380,7 @@ get_mac:
 
 	align 2
 	io				dw 0		; I/O port base
+	rx_address			dw 0
 
 	align 4
 	rx_buffer			dd 0

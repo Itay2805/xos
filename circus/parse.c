@@ -183,7 +183,7 @@ size_t remove_newlines(unsigned char *data, size_t size)
 	size_t count = 0;
 	while(count < size)
 	{
-		if(data[count] == '\n' || data[count] == '\r' || data[count] == '\t')
+		if(data[count] == '\n' || data[count] == '\r' || data[count] == '\t' || data[count] < 0x20 || data[count] > 0x7F)
 			data[count] = 0xA0;		// non-breaking space
 
 		count++;
@@ -214,13 +214,30 @@ html_parse_t *parse(unsigned char *data, size_t size)
 		if(parse_buffer_size % HTML_PARSE_WINDOW == 0)
 			parse_buffer = realloc(parse_buffer, parse_buffer_size + HTML_PARSE_WINDOW);
 
+		if(html_offset >= size)
+			goto finish;
+
 		if(data[html_offset] == 0)
 			goto finish;
 
 		//while(data[html_offset] == ' ' || data[html_offset] == '\n' || data[html_offset] == '\r' || data[html_offset] == 0xA0)
-		while(data[html_offset] < 0x20 || data[html_offset] > 0x7F)
+		if(data[html_offset] == ' ' && data[html_offset-1] != ' ' && data[html_offset+1] != ' ')
 		{
 			html_offset++;
+			text = (html_text_t*)(parse_buffer + parse_buffer_size);
+			text->type = HTML_PARSE_TEXT;
+			text->size = copy_text(" ", text->text);
+			text->size += sizeof(html_parse_t);
+			parse_buffer_size += text->size;
+			continue;
+		}
+
+		while(data[html_offset] <= 0x20 || data[html_offset] > 0x7F || data[html_offset] == '\t')
+		{
+			html_offset++;
+
+			if(html_offset >= size)
+				goto finish;
 		}
 
 		if(data[html_offset] == '<' && data[html_offset+1] == '!')
@@ -250,9 +267,9 @@ html_parse_t *parse(unsigned char *data, size_t size)
 
 finish:
 	end = (html_parse_t*)(parse_buffer + parse_buffer_size);
-
 	end->type = HTML_PARSE_END;
 	end->size = sizeof(html_parse_t);
+	parse_buffer_size += sizeof(html_parse_t);
 
 	return parse_buffer;
 }

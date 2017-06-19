@@ -41,6 +41,9 @@ void xos_redraw_vscroll(xos_window window, xos_vscroll_t *vscroll)
 	xos_fill_rect(window, vscroll->x, vscroll->y, 16, vscroll->height, SCROLLBAR_BG);
 
 	int16_t scroll_height = vscroll->height / (vscroll->max_value + 1);
+	if(scroll_height <= 0)
+		scroll_height = 2;
+
 	int16_t scroll_y = (vscroll->value * scroll_height) + vscroll->y;
 
 	// the actual scrollbar

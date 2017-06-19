@@ -310,19 +310,6 @@ http_head:
 
 	jmp .receive_loop
 
-.check_finish:
-	cmp dl, 0xFF
-	je .finish
-
-	test dl, TCP_FIN
-	jnz .finish
-
-	test dl, TCP_PSH
-	jnz .psh_ack
-
-	test dl, TCP_ACK
-	jnz .receive_loop
-
 .finish:
 	mov eax, [.socket]
 	call socket_close

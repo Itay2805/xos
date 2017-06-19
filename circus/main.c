@@ -112,7 +112,7 @@ int handle_events()
 
 	else if(event.type == XOS_EVENT_DRAG && event.component == vscroll)
 	{
-		yield_times = 0;
+		yield_times = 8;
 		return CIRCUS_SCROLL;
 	}
 

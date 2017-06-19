@@ -20,8 +20,8 @@ extern void load_page();
 
 char *link_last_path(char *path)
 {
-	char *end_path = (char *)path + strlen(path);
-	char *ret;
+	char *end_path = (char*)path + strlen(path);
+	char *ret = NULL;
 
 	while(path < end_path)
 	{
@@ -32,6 +32,39 @@ char *link_last_path(char *path)
 	}
 
 	return ret;
+}
+
+// link_first_path:
+// Returns pointer to the first path separator in a path
+
+char *link_first_path(char *path)
+{
+	char *end_path = (char*)path + strlen(path);
+	char *ret = NULL;
+
+	if(memcmp(path, "http://", 7) == 0)
+	{
+		path += 7;
+	} else if(memcmp(path, "file://", 7) == 0)
+	{
+		path += 7;
+	}
+
+	if(path[0] == '/')
+		path++;
+
+	while(path < end_path)
+	{
+		if(path[0] == '/')
+		{
+			ret = path;
+			break;
+		}
+
+		path++;
+	}
+
+	return path;
 }
 
 // handle_canvas_event:
@@ -70,9 +103,29 @@ int handle_canvas_event(short x, short y)
 					if(link_addr[0] == '.' && link_addr[1] == '/')
 					{
 						path_copy = link_last_path(current_uri);
+
+						if(path_copy == NULL)
+						{
+							path_copy = current_uri + strlen(current_uri);
+							path_copy[0] = '/';
+						}
+
 						path_copy++;
 
 						strcpy(path_copy, link_addr + 2);
+					} else if(link_addr[0] == '/')
+					{
+						path_copy = link_first_path(current_uri);
+
+						if(path_copy == NULL)
+						{
+							path_copy = current_uri + strlen(current_uri);
+							path_copy[0] = '/';
+						}
+
+						path_copy++;
+
+						strcpy(path_copy, link_addr + 1);
 					} else
 					{
 						path_copy = link_last_path(current_uri);

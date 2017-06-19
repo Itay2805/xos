@@ -42,12 +42,12 @@ SOCKET_FLAGS_PRESENT		= 0x01
 SOCKET_PROTOCOL_TCP		= 0
 SOCKET_PROTOCOL_UDP		= 1
 
-TCP_WINDOW			= 48*1024	; default window size for TCP
+TCP_WINDOW			= 32768	; default window size for TCP
 
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP
 
-SOCKET_TIMEOUT			= 2048
+SOCKET_TIMEOUT			= 3072
 
 align 4
 sockets				dd 0
@@ -512,8 +512,8 @@ socket_read:
 .receive_tcp_start:
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], SOCKET_TIMEOUT/3
-	jge .error_free
+	cmp [.packet_count], SOCKET_TIMEOUT / 2
+	jg .error_free
 
 .receive_tcp_loop:
 	;sti
