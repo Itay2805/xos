@@ -7,7 +7,7 @@ org 0x1000
 
 	jmp 0x0000:kmain16
 
-	kernel_version			db "xOS32 v0.11 (2 June 2017)",0
+	kernel_version			db "xOS32 v0.11 (19 June 2017)",0
 	copyright_str			db "Copyright (C) 2016-2017 by Omar Mohammad.",0
 	newline				db 10,0
 
@@ -286,9 +286,11 @@ boot_splash_buffer	dd 0
 ; This cools down the CPU and is needed on overclocked laptops to prevent overheating
 align 32
 idle_process:
+	call net_handle		; handle unrequested incoming packets
 	sti
 	hlt
-	call yield
+	call yield		; and go on..
+	jmp idle_process
 
 	;
 	; END OF MAIN KERNEL CODE
@@ -368,6 +370,7 @@ idle_process:
 	include "kernel/net/net.asm"		; Network initialization code
 	include "kernel/net/arp.asm"		; ARP Protocol
 	include "kernel/net/ip.asm"		; IP Protocol
+	include "kernel/net/icmp.asm"		; ICMP Protocol
 	include "kernel/net/udp.asm"		; UDP Protocol
 	include "kernel/net/dhcp.asm"		; DHCP Protocol
 	include "kernel/net/dns.asm"		; DNS Protocol

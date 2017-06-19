@@ -92,6 +92,10 @@ align 4
 ; Out\	EAX = Socket handle, -1 on error
 
 socket_open:
+	pusha
+	call net_handle
+	popa
+
 	cmp al, SOCKET_PROTOCOL_TCP
 	je .open_tcp
 
@@ -187,6 +191,8 @@ socket_open:
 	jne .error_close
 
 	; finished..
+	call net_handle
+
 	mov eax, [.buffer]
 	call kfree
 

@@ -108,17 +108,25 @@ void load_http_page()
 	strcpy(status_text, loading_status_text);
 	xos_redraw(window);
 
+	int retries = 10;
 	size_t size;
 
 	// load the web page
 	k_http kernel_http_response;
+
+load:
 	k_http_get(current_uri, &kernel_http_response);
 
 	if(kernel_http_response.size == 0 || kernel_http_response.response == 0 || kernel_http_response.response == 0xFFFFFFFF)
 	{
-		strcpy(status_text, no_file_status_text);
-		xos_redraw(window);
-		return;
+		retries--;
+		if(retries == 0)
+		{
+			strcpy(status_text, no_file_status_text);
+			xos_redraw(window);
+			return;
+		} else
+			goto load;
 	}
 
 	char *http_response = (char*)kernel_http_response.response;

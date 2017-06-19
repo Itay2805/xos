@@ -114,5 +114,58 @@ align 4
 .dest_mac			dd 0
 .protocol			db 0
 
+; ip_handle:
+; Handles incoming IP packet
+; In\	ESI = Packet
+; In\	ECX = Size
+; Out\	Nothing
+
+ip_handle:
+	add esi, ETHERNET_HEADER_SIZE
+	sub ecx, ETHERNET_HEADER_SIZE
+	mov [.packet], esi
+	mov [.packet_size], ecx
+
+	; destination IP has to be us
+	mov esi, [.packet]
+	mov eax, [esi+16]
+	cmp eax, [my_ip]
+	jne .drop
+
+	; okay, now check the protocols and see what we need to do
+	mov esi, [.packet]
+	mov ecx, [.packet_size]
+	mov al, [esi+9]
+	cmp al, ICMP_PROTOCOL_TYPE
+	je .icmp
+
+	; unneeded packet..
+	jmp .drop
+
+.icmp:
+	call icmp_handle
+	ret
+
+.drop:
+	mov [kprint_type], KPRINT_TYPE_WARNING
+	mov esi, .drop_msg
+	call kprint
+	mov eax, [.packet_size]
+	call int_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+	mov [kprint_type], KPRINT_TYPE_NORMAL
+
+	ret
+
+align 4
+.packet				dd 0
+.packet_size			dd 0
+
+.drop_msg			db "net-ip: drop packet with payload size ",0
+
+
+
 
 

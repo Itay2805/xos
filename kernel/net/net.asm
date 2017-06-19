@@ -4,7 +4,8 @@
 
 use32
 
-NET_TIMEOUT			= 0x80000		; times to poll..
+NET_TIMEOUT			= 0x100000		; times to poll..
+NET_BUFFER_SIZE			= 65536
 
 ETHERNET_HEADER_SIZE		= 14			; size in bytes
 
@@ -16,7 +17,7 @@ NET_GET_MAC			= 0x0012
 network_available		db 0
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
-router_mac:			times 6 db 0
+router_mac:			times 6 db 0xFF
 router_ip:			times 4 db 0
 dns_ip:				times 4 db 0		; DNS server
 broadcast_mac:			times 6 db 0xFF		; FF:FF:FF:FF:FF:FF
@@ -26,10 +27,23 @@ netstat:
 	.sent_bytes		dd 0
 	.received_bytes		dd 0
 
+align 4
+net_buffer			dd 0
+
 ; net_init:
 ; Initializes the network stack
 
 net_init:
+	mov ecx, NET_BUFFER_SIZE
+	call kmalloc
+	mov [net_buffer], eax
+
+	mov ecx, DNS_MAX_CACHE * DNS_CACHE_SIZE
+	call kmalloc
+	mov [dns_cache], eax
+	add eax, DNS_MAX_CACHE * DNS_CACHE_SIZE
+	mov [dns_end_cache], eax
+
 	mov [network_available], 0
 
 	; TO-DO: make a configuration file which tells which driver to load
@@ -353,6 +367,64 @@ net_receive:
 
 	add [netstat.received_bytes], eax
 	ret
+
+; net_handle:
+; Handles unrequested incoming packets, from system idle process
+
+net_handle:
+	mov edi, [net_buffer]
+	call net_receive
+
+	cmp eax, 0
+	je .quit
+
+	mov [.size], eax
+
+	; check packet type
+	mov esi, [net_buffer]
+	mov ecx, [.size]
+	mov ax, [esi+12]
+	xchg al, ah
+
+	cmp ax, IP_PROTOCOL_TYPE
+	je .ip
+
+	cmp ax, ARP_PROTOCOL_TYPE
+	je .arp
+
+	mov [kprint_type], KPRINT_TYPE_WARNING
+	mov esi, .dropping_msg
+	call kprint
+	mov eax, [.size]
+	call int_to_string
+	call kprint
+	mov esi, .dropping_msg2
+	call kprint
+	mov esi, [net_buffer]
+	mov ax, [esi+12]
+	xchg al, ah
+	call hex_word_to_string
+	call kprint
+	mov esi, newline
+	call kprint
+	mov [kprint_type], KPRINT_TYPE_NORMAL
+	jmp net_handle
+
+.quit:
+	ret
+
+.ip:
+	call ip_handle
+	jmp net_handle
+
+.arp:
+	call arp_handle
+	jmp net_handle
+
+align 4
+.size				dd 0
+.dropping_msg			db "net: dropping packet, total size ",0
+.dropping_msg2			db ", protocol 0x",0
 
 
 

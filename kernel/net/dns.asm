@@ -5,12 +5,35 @@
 use32
 
 ; Domain Name System..
+
+;
+;
+; struct dns_cache
+; {
+;	u8 domain[508];
+;	u32 ip;
+; }
+;
+; sizeof(dns_cache) = 512;
+;
+;
+
+DNS_CACHE_DOMAIN			= 0
+DNS_CACHE_IP				= 508
+DNS_CACHE_SIZE				= 512
+DNS_MAX_CACHE				= 512
+
 DNS_HEADER_SIZE				= 12
 DNS_SOURCE_PORT				= 32768
 DNS_DESTINATION_PORT			= 53
 
 align 2
 dns_id					dw "XS"
+
+align 4
+dns_cache				dd 0	; keep a cache of all used IP addresses to speed up networking
+dns_end_cache				dd 0
+dns_cache_entries			dd 0
 
 ; dns_request:
 ; Gets the IP address of a domain name
@@ -24,7 +47,35 @@ dns_request:
 	cmp eax, 255			; byte limit
 	jge .error
 
-	; construct a DNS packet
+	; check if the domain name exists in the cache
+	; to speed up networking
+	mov [.domain_size], eax
+
+	mov esi, [dns_cache]
+
+.search_cache_loop:
+	push esi
+	mov edi, [.domain]
+	mov ecx, [.domain_size]
+	inc ecx
+	rep cmpsb
+	je .found_cache
+	pop esi
+
+	add esi, DNS_CACHE_SIZE
+	cmp esi, [dns_end_cache]
+	jge .send_request
+
+	jmp .search_cache_loop
+
+.found_cache:
+	pop esi
+	mov eax, [esi+DNS_CACHE_IP]	; get the IP address from the cache
+	ret
+
+.send_request:
+	; the domain is not in the cache --
+	; -- construct a DNS packet
 	mov ecx, 8192			; much more than enough
 	call kmalloc
 	mov [.packet], eax
@@ -131,7 +182,7 @@ dns_request:
 
 .receive_loop:
 	inc [.wait_loops]
-	cmp [.wait_loops], NET_TIMEOUT
+	cmp [.wait_loops], NET_TIMEOUT*2
 	jg .error
 
 	mov edi, [.packet]
@@ -220,12 +271,23 @@ dns_request:
 	jne .receive_start
 
 	mov eax, [esi+12]	; actual IP address -- the value we wanted from the beginning
-	push eax
+	mov [.ip], eax
 
-	mov eax, [.packet]
-	call kfree
+	mov edi, [dns_cache_entries]
+	shl edi, 9
+	add edi, [dns_cache]
+	push edi
+	mov esi, [.domain]
+	mov ecx, [.domain_size]
+	rep movsb
+	xor al, al
+	stosb
+	pop edi
+	mov eax, [.ip]
+	mov [edi+DNS_CACHE_IP], eax
 
-	pop eax
+	xor edi, edi
+	mov eax, [.ip]
 	ret
 
 .error:
@@ -241,7 +303,10 @@ align 4
 .wait_loops				dd 0
 .packet_count				dd 0
 .dns_body				dd 0
+.domain_size				dd 0
+.ip					dd 0
 .label_size				db 0
+
 
 
 
