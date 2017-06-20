@@ -396,8 +396,8 @@ dhcp_init:
 	ret
 
 .error:
-	mov esi, .error_msg
-	call kprint
+	;mov esi, .error_msg
+	;call kprint
 
 	mov eax, [.packet]
 	call kfree

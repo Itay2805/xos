@@ -52,7 +52,7 @@ ip_send:
 	mov ax, 0		; fragment offset
 	stosw
 
-	mov al, 80		; time to live
+	mov al, 126		; time to live
 	stosb
 
 	mov al, [.protocol]	; protocol

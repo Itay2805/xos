@@ -282,15 +282,37 @@ boot_splash_buffer	dd 0
 
 ; idle_process:
 ; The only process on the system which runs in ring 0
-; All it does is keep the CPU halted until it's time for a task switch or IRQ
-; This cools down the CPU and is needed on overclocked laptops to prevent overheating
+; It handles incoming network packets without the need for PCI IRQs
 align 32
 idle_process:
 	call net_handle		; handle unrequested incoming packets
+
+	cmp [network_available], 0
+	jne .yield
+
+	call net_handle
+
+	inc [.network_timeout]
+	cmp [.network_timeout], TIMER_FREQUENCY/2
+	jle .yield
+
+	call dhcp_init
+
+	cmp [network_available], 0
+	je .yield
+
+	call net_handle
+	call arp_gratuitous
+	call net_handle
+
+.yield:
 	sti
 	hlt
 	call yield		; and go on..
 	jmp idle_process
+
+align 4
+.network_timeout		dd 0
 
 	;
 	; END OF MAIN KERNEL CODE

@@ -119,18 +119,18 @@ net_init:
 	call kmalloc
 	mov [sockets], eax
 
-.do_dhcp:
+;.do_dhcp:
 	; get ourselves an IP address using DHCP with a timeout
-	inc [.dhcp_tries]
-	cmp [.dhcp_tries], 10
-	jge .dhcp_done
+	;inc [.dhcp_tries]
+	;cmp [.dhcp_tries], 10
+	;jge .dhcp_done
 
-	call dhcp_init
-	cmp [network_available], 1
-	jne .do_dhcp
+	;call dhcp_init
+	;cmp [network_available], 1
+	;jne .do_dhcp
 
-.dhcp_done:
-	call arp_gratuitous
+;.dhcp_done:
+	;call arp_gratuitous
 
 	ret
 

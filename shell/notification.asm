@@ -31,15 +31,26 @@ network_notification:
 	mov eax, [notification_handle]
 	mov cx, 8
 	mov dx, 16
-	mov esi, .text
 	mov ebx, 0xFFFFFF
-	call xwidget_create_label
 
+	cmp [network_status], 0
+	je .no
+
+	mov esi, .connect_text
+	jmp .finish
+
+.no:
+	mov esi, .no_text
+
+.finish:
+	call xwidget_create_label
 	ret
 
 align 4
 .x				dw 0
-.text				db "You are now connected to the",10
+.connect_text			db "You are now connected to the",10
+				db "internet.",0
+.no_text			db "Failed to connect to the",10
 				db "internet.",0
 
 ; close_notification:

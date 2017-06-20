@@ -76,14 +76,6 @@ main:
 	call xwidget_create_label
 	mov [time_handle], eax
 
-	; get network status, show notification if needed
-	mov ebp, XOS_NET_GET_CONNECTION
-	int 0x60
-	cmp eax,0
-	je .hang
-
-	call network_notification
-
 .hang:
 	call xwidget_wait_event
 	cmp eax, XWIDGET_BUTTON
@@ -133,6 +125,16 @@ config_error:
 ; This is called by xwidget every time it is idle
 
 xwidget_yield_handler:
+	; get network status, show notification if needed
+	mov ebp, XOS_NET_GET_CONNECTION
+	int 0x60
+	cmp eax, [network_status]
+	je .time
+
+	mov [network_status], eax
+	call network_notification
+
+.time:
 	call update_time
 	ret
 
@@ -152,6 +154,7 @@ xwidget_yield_handler:
 	shutdown_handle		dd 0
 	shutdown_button_handle	dd 0
 	restart_button_handle	dd 0
+	network_status		dd 0
 
 	align 4
 	menu_button_color:

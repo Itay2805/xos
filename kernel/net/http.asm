@@ -11,7 +11,7 @@ HTTP_DEBUG_PORT				= 8080		; probably not needed..
 HTTP_INITIAL_SEQ			= 0x00000000
 
 align 2
-http_source_port			dw 32768
+http_source_port			dw 56000
 
 http_get_string				db "GET "
 http_head_string			db "HEAD "

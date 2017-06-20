@@ -29,6 +29,7 @@ DNS_DESTINATION_PORT			= 53
 
 align 2
 dns_id					dw "XS"
+dns_port				dw DNS_SOURCE_PORT
 
 align 4
 dns_cache				dd 0	; keep a cache of all used IP addresses to speed up networking
@@ -156,10 +157,13 @@ dns_request:
 	mov [.packet_size], edi
 
 	; okay, send the packet by UDP
+	inc [dns_port]
+
 	mov eax, dword[my_ip]		; my IP
 	mov ebx, dword[dns_ip]		; destination IP - DNS server
 	mov ecx, [.packet_size]
-	mov edx, (DNS_DESTINATION_PORT shl 16) or DNS_SOURCE_PORT
+	mov edx, (DNS_DESTINATION_PORT shl 16); or DNS_SOURCE_PORT
+	mov dx, [dns_port]
 	mov esi, [.packet]
 	mov edi, router_mac
 	call udp_send
@@ -214,7 +218,8 @@ dns_request:
 
 	mov ax, [esi+2]		; and reply destination must be our source...
 	xchg al, ah
-	cmp ax, DNS_SOURCE_PORT
+	;cmp ax, DNS_SOURCE_PORT
+	cmp ax, [dns_port]
 	jne .receive_start
 
 	add esi, UDP_HEADER_SIZE	; to the DNS packet..
