@@ -27,6 +27,10 @@ char missing_status_text[] = "Status: Unimplemented feature, idle.";
 char no_file_status_text[] = "Status: Requested file not found, idle.";
 char no_protocol_status_text[] = "Status: Unsupported protocol, idle.";
 char no_content_status_text[] = "Status: Content is not text/html, idle.";
+char http_3xx_status_text[] = "Status: HTTP status 3xx, idle.";
+char http_4xx_status_text[] = "Status: HTTP status 4xx, idle.";
+char http_5xx_status_text[] = "Status: HTTP status 5xx, idle.";
+char unknown_status_text[] = "Status: Undefined HTTP status, idle.";
 
 int handle_events();
 extern void load_page();

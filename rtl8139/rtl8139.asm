@@ -34,7 +34,7 @@ NET_SEND_PACKET			= 0x0010
 NET_RECEIVE_PACKET		= 0x0011
 NET_GET_MAC			= 0x0012
 
-RX_BUFFER_SIZE			= 65536+16	; 64 KB + 16 bytes
+RX_BUFFER_SIZE			= 65536		; 64 KB + 16 bytes
 
 include				"rtl8139/driver.asm"
 include				"rtl8139/string.asm"
@@ -193,7 +193,7 @@ driver_init:
 
 	; allocate the RX buffer
 	mov eax, 0
-	mov ecx, RX_BUFFER_SIZE/4096		; to pages
+	mov ecx, (RX_BUFFER_SIZE+4095)/4096		; to pages
 	mov dl, 0x13				; present, read/write, uncacheable
 	mov ebp, XOS_VMM_ALLOC			; page-aligned memory
 	int 0x61
@@ -247,6 +247,17 @@ driver_reset:
 	test al, RTL8139_COMMAND_RESET
 	jnz .wait_reset
 
+	; configure the multicast
+	mov dx, [io]
+	add dx, RTL8139_MULTICAST_ADDRESS
+	mov ecx, 8
+	mov al, 0xFF
+
+.multicast_loop:
+	out dx, al
+	inc dx
+	loop .multicast_loop
+
 	; configure the receive buffer
 	mov eax, [rx_buffer]
 	mov ebp, XOS_VIRTUAL_TO_PHYSICAL	; for DMA to be happy..
@@ -271,16 +282,12 @@ driver_reset:
 	out dx, eax
 	call iowait
 
-	;mov dx, [io]
-	;add dx, RTL8139_RX_CURRENT_ADDRESS
-	;mov ax, 65520
-	;out dx, ax
-	;call iowait
-
+	; CAPR
 	mov dx, [io]
 	add dx, RTL8139_RX_CURRENT_ADDRESS
-	in ax, dx
-	mov [rx_address], ax
+	mov ax, 0xFFF0			; 0 - 16
+	out dx, ax
+	call iowait
 
 	; configure the transmitter
 	mov [transmit_descriptor], 3
@@ -380,7 +387,6 @@ get_mac:
 
 	align 2
 	io				dw 0		; I/O port base
-	rx_address			dw 0
 
 	align 4
 	rx_buffer			dd 0

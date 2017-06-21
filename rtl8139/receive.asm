@@ -13,63 +13,91 @@ receive:
 	mov [.buffer], ebx
 
 	; is there a packet?
+	;mov dx, [io]
+	;add dx, RTL8139_INTERRUPT_STATUS
+	;in ax, dx
+	;test ax, RTL8139_INTERRUPT_RECEIVE_OK
+	;jz .empty
+
 	mov dx, [io]
-	add dx, RTL8139_INTERRUPT_STATUS
-	in ax, dx
+	add dx, RTL8139_COMMAND
+	in al, dx
+	test al, RTL8139_COMMAND_EMPTY
+	jnz .empty
 
-	test ax, RTL8139_INTERRUPT_RECEIVE_OK
-	jnz .ok
-
-	jmp .empty
-
-.ok:
-	; clear the status
+	; is it a good packet?
 	mov dx, [io]
-	add dx, RTL8139_INTERRUPT_STATUS
+	add dx, RTL8139_RX_CURRENT_ADDRESS
 	in ax, dx
-	and ax, RTL8139_INTERRUPT_RECEIVE_OK
-	out dx, ax
+	add ax, 16
+	movzx eax, ax
+	mov esi, [rx_buffer]
+	add esi, eax
 
-	mov esi, [rx_buffer_current]
-	lodsw
-
-	test ax, 1		; good packet?
+	mov ax, [esi]		; packet status
+	test ax, 1
 	jz .empty
 
-	; okay, copy the packet
-	movzx ecx, word[esi]		; packet size
-	sub ecx, 4
-	mov [.size], ecx
-	add esi, 2			; actual packet
+	mov cx, [esi+2]		; packet size
+	sub cx, 4
+	mov [.size], cx
+
+	add esi, 4		; skip packet header
 	mov edi, [.buffer]
+	movzx ecx, cx
 	rep movsb
 
+	; update capr
+	;mov dx, [io]
+	;add dx, RTL8139_RX_COUNT
+	;in ax, dx
+	;sub ax, 16
+	;mov dx, [io]
+	;add dx, RTL8139_RX_CURRENT_ADDRESS
+	;out dx, ax
+
 	mov dx, [io]
-	add dx, RTL8139_RX_COUNT
+	add dx, RTL8139_RX_CURRENT_ADDRESS
 	in ax, dx
+	add ax, word[.size]
+	add ax, 8 + 3		; skip packet header and ethernet CRC
+	and ax, not 3		; must be dword aligned
 
-	cmp ax, 0xF000			; 60 KB
-	jge .reset			; yep - reset the descriptor before we overflow
+	add ax, 16
+	cmp ax, RX_BUFFER_SIZE-4096
+	jge .reset
 
-	mov eax, [.size]
-	add eax, 4
-	add [rx_buffer_current], eax
+	sub ax, 16
+	out dx, ax
 
-	mov eax, [.size]
-	ret
+	; clear interrupt
+	mov dx, [io]
+	add dx, RTL8139_INTERRUPT_STATUS
+	in ax, dx
+	and ax, RTL8139_INTERRUPT_RECEIVE_OK or RTL8139_INTERRUPT_RECEIVE_ERROR
+	out dx, ax
 
-.empty:
-	mov eax, 0
+	movzx eax, [.size]
 	ret
 
 .reset:
-	call driver_reset		; reset everything
-	mov eax, [.size]
+	call driver_reset
+	movzx eax, [.size]
+	ret
+
+.empty:
+	;mov dx, [io]
+	;add dx, RTL8139_INTERRUPT_STATUS
+	;in ax, dx
+	;and ax, RTL8139_INTERRUPT_RECEIVE_OK or RTL8139_INTERRUPT_RECEIVE_ERROR
+	;out dx, ax
+
+	mov eax, 0
 	ret
 
 align 4
 .buffer				dd 0
-.size				dd 0
+.size				dw 0
 
 
 

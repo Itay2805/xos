@@ -20,6 +20,10 @@ extern char missing_status_text[];
 extern char no_file_status_text[];
 extern char no_protocol_status_text[];
 extern char no_content_status_text[];
+extern char http_3xx_status_text[];
+extern char http_4xx_status_text[];
+extern char http_5xx_status_text[];
+extern char unknown_status_text[];
 extern int yield_times;
 
 void load_local_page();
@@ -152,6 +156,65 @@ load:
 
 	char *end_http_header = http_response;
 
+	// check for the status
+	http_response = (char*)kernel_http_response.response;
+	if(http_response[9] == '2')		// 2xx
+		goto search_content;
+
+	else if(http_response[9] == '3')	// 3xx
+	{
+		// search for redirects
+		while(1)
+		{
+			if(memcmp(http_response, "Location: ", 10) == 0)
+				break;
+
+			http_response++;
+			if(http_response >= end_http_header)
+			{
+				strcpy(status_text, http_3xx_status_text);
+				xos_redraw(window);
+				return;
+			}
+		}
+
+		http_response += 10;		// skip "Location: "
+
+		int location_index = 0;
+
+		while(http_response[location_index] != '\r' && http_response[location_index] != '\n')
+		{
+			current_uri[location_index] = http_response[location_index];
+			location_index++;
+		}
+
+		current_uri[location_index] = 0;	// null terminator
+		xos_redraw(window);
+		goto load;
+	}
+
+	else if(http_response[9] == '4')	// 4xx
+	{
+		strcpy(status_text, http_4xx_status_text);
+		xos_redraw(window);
+		return;
+	}
+
+	else if(http_response[9] == '5')	// 5xx
+	{
+		strcpy(status_text, http_5xx_status_text);
+		xos_redraw(window);
+		return;
+	}
+
+	else
+	{
+		strcpy(status_text, unknown_status_text);
+		xos_redraw(window);
+		return;
+	}
+
+search_content:
 	// search for the content type
 	http_response = (char*)kernel_http_response.response;
 	while(1)

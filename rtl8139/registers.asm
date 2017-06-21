@@ -2,7 +2,8 @@
 ; RTL8139 Network Driver for xOS
 ; Copyright (c) 2017 by Omar Mohammad
 
-RTL8139_MAC_ADDRESS			= 0x00		; 5 bytes
+RTL8139_MAC_ADDRESS			= 0x00		; 6 bytes
+RTL8139_MULTICAST_ADDRESS		= 0x08		; 8 bytes
 RTL8139_TRANSMIT_STATUS			= 0x10		; 4 dwords
 RTL8139_TRANSMIT_START			= 0x20		; 4 dwords
 RTL8139_RX_START			= 0x30		; dword

@@ -77,21 +77,21 @@ transmit:
 	jmp .dma_loop
 
 .dma_complete:
-	mov [.poll_times], 0
+	;mov [.poll_times], 0
 
 	mov dx, [.transmit_status]
 
-.ok_loop:
-	inc [.poll_times]
-	cmp [.poll_times], 0x3FFFF
-	jg .timeout
+;.ok_loop:
+	;inc [.poll_times]
+	;cmp [.poll_times], 0x3FFFF
+	;jg .timeout
 
 	; poll the card -- wait for the entire network transfer to complete
-	in eax, dx
-	test eax, RTL8139_TRANSMIT_STATUS_OK	; packet send completed?
-	jnz .ok
+	;in eax, dx
+	;test eax, RTL8139_TRANSMIT_STATUS_OK	; packet send completed?
+	;jnz .ok
 
-	jmp .ok_loop
+	;jmp .ok_loop
 
 .ok:
 	; clean up the transmitter registers
@@ -106,7 +106,8 @@ transmit:
 
 	mov dx, [io]
 	add dx, RTL8139_INTERRUPT_STATUS
-	mov ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
+	in ax, dx
+	and ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
 	out dx, ax
 
 	; and return success
@@ -130,7 +131,8 @@ transmit:
 
 	mov dx, [io]
 	add dx, RTL8139_INTERRUPT_STATUS
-	mov ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
+	in ax, dx
+	and ax, RTL8139_INTERRUPT_TRANSMIT_OK or RTL8139_INTERRUPT_TRANSMIT_ERROR
 	out dx, ax
 
 	; and return failure
