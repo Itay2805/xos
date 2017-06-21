@@ -271,7 +271,7 @@ arp_handle:
 	; okay, someone is asking for the MAC of our IP address
 	; save their information --
 	mov esi, [net_buffer]
-	add esi, 8			; source MAC
+	add esi, 6			; source MAC
 	mov edi, .mac
 	mov ecx, 6
 	rep movsb

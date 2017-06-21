@@ -34,7 +34,7 @@ NET_SEND_PACKET			= 0x0010
 NET_RECEIVE_PACKET		= 0x0011
 NET_GET_MAC			= 0x0012
 
-RX_BUFFER_SIZE			= 65536		; 64 KB + 16 bytes
+RX_BUFFER_SIZE			= 32768		; 32 KB
 
 include				"rtl8139/driver.asm"
 include				"rtl8139/string.asm"
@@ -276,9 +276,10 @@ driver_reset:
 
 	; receive all packets
 	mov eax, RTL8139_RECEIVE_CONFIG_ACCEPT_ALL or RTL8139_RECEIVE_CONFIG_ACCEPT_PHYSICAL or RTL8139_RECEIVE_CONFIG_ACCEPT_MULTICAST or RTL8139_RECEIVE_CONFIG_ACCEPT_BROADCAST
-	or eax, 3 shl 11		; receive buffer is 64 KB
+	or eax, 2 shl 11		; receive buffer is 64 KB
 	or eax, 7 shl 13		; no receive threshold
-	or eax, 6 shl 8			; max DMA burst
+	or eax, 7 shl 8			; max DMA burst - unlimited
+	or eax, RTL8139_RECEIVE_CONFIG_WRAP
 	out dx, eax
 	call iowait
 

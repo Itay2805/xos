@@ -17,7 +17,7 @@ int yield_times = 0;
 
 char status_text[64];
 char current_uri[512];
-char homepage[] = "http://forum.osdev.org/";
+char homepage[] = "http://google.com/";
 
 char idle_status_text[] = "Status: Idle.";
 char loading_status_text[] = "Status: Loading...";

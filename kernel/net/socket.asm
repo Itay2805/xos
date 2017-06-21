@@ -42,15 +42,16 @@ SOCKET_FLAGS_PRESENT		= 0x01
 SOCKET_PROTOCOL_TCP		= 0
 SOCKET_PROTOCOL_UDP		= 1
 
-TCP_WINDOW			= 32768	; default window size for TCP
+TCP_WINDOW			= 32768		; default window size for TCP
 
 ; UDP doesn't actually support windows, but we use these internally
 UDP_WINDOW			= 512		; maximum window size for UDP
 
-SOCKET_TIMEOUT			= 3072
+SOCKET_TIMEOUT			= 1536
 
 align 4
 sockets				dd 0
+open_sockets			dd 0
 
 ; socket_find_handle:
 ; Finds a free socket handle
@@ -196,6 +197,7 @@ socket_open:
 	mov eax, [.buffer]
 	call kfree
 
+	inc [open_sockets]
 	mov eax, [.socket]
 	ret
 
@@ -331,6 +333,7 @@ socket_close:
 	xor al, al
 	rep stosb
 
+	dec [open_sockets]
 	ret
 
 .return:
@@ -518,7 +521,7 @@ socket_read:
 .receive_tcp_start:
 	mov [.wait_loops], 0
 	inc [.packet_count]
-	cmp [.packet_count], SOCKET_TIMEOUT / 2
+	cmp [.packet_count], SOCKET_TIMEOUT
 	jg .error_free
 
 .receive_tcp_loop:
@@ -541,32 +544,34 @@ socket_read:
 	jmp .receive_tcp_loop
 
 .check_tcp_received:
+	mov [.total_size], eax
+
 	; destination has to be our MAC
 	mov esi, [.packet]
 	mov edi, my_mac
 	mov ecx, 6
 	rep cmpsb
-	jne .receive_tcp_start
+	jne .tcp_handle_other
 
 	; packet type has to be IP
 	mov esi, [.packet]
 	mov ax, [esi+12]
 	xchg al, ah
 	cmp ax, IP_PROTOCOL_TYPE
-	jne .receive_tcp_start
+	jne .tcp_handle_other
 
 	add esi, ETHERNET_HEADER_SIZE
 	mov eax, [esi+12]		; source IP
 	cmp eax, [.ip]
-	jne .receive_tcp_start
+	jne .tcp_handle_other
 
 	mov eax, [esi+16]		; destination IP
 	cmp eax, [my_ip]		; has to be ours
-	jne .receive_tcp_start
+	jne .tcp_handle_other
 
 	mov al, [esi+9]
 	cmp al, TCP_PROTOCOL_TYPE
-	jne .receive_tcp_start
+	jne .tcp_handle_other
 
 	; this packet is for us, but it may or may not be in the correct order
 	; for simplicity, only accept packets sent in order
@@ -593,6 +598,18 @@ socket_read:
 	bswap eax			; big endian
 	;inc eax
 	mov [esi+SOCKET_INITIAL_SEQ], eax
+	jmp .tcp_work
+
+.tcp_handle_other:
+	; handles a packet that was received but isn't for us
+	mov esi, [.packet]
+	mov ecx, [.total_size]
+	mov edi, [net_buffer]
+	rep movsb
+
+	mov ecx, [.total_size]
+	call net_handle_packet
+	jmp .receive_tcp_start
 
 .tcp_work:
 	mov esi, [.tcp]
@@ -753,6 +770,7 @@ align 4
 .packet				dd 0
 .ip				dd 0
 .ip_size			dd 0
+.total_size			dd 0
 .payload_size			dd 0
 .tcp				dd 0
 .tcp_header			dd 0

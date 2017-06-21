@@ -82,6 +82,24 @@ receive:
 
 .reset:
 	call driver_reset
+
+	;mov edi, [rx_buffer]
+	;mov al, 0
+	;mov ecx, RX_BUFFER_SIZE
+	;rep stosb
+
+	;mov dx, [io]
+	;add dx, RTL8139_RX_CURRENT_ADDRESS
+	;mov ax, 0xFFF0
+	;out dx, ax
+
+	; clear interrupt
+	;mov dx, [io]
+	;add dx, RTL8139_INTERRUPT_STATUS
+	;in ax, dx
+	;and ax, RTL8139_INTERRUPT_RECEIVE_OK or RTL8139_INTERRUPT_RECEIVE_ERROR
+	;out dx, ax
+
 	movzx eax, [.size]
 	ret
 

@@ -15,10 +15,10 @@ receive:
 
 	mov esi, [rx_buffer]
 	mov ax, [esi+12]		; status
-	test ax, 1			; EOP | DD
+	test ax, 1			; DD
 	jz .zero
 
-	and word[esi+12], not 1		; clear EOP and DD
+	and word[esi+12], not 1		; clear DD
 
 	mov ecx, 0
 	mov esi, [rx_buffer]

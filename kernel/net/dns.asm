@@ -278,6 +278,13 @@ dns_request:
 	mov eax, [esi+12]	; actual IP address -- the value we wanted from the beginning
 	mov [.ip], eax
 
+	cmp eax, 0xFFFFFFFF
+	je .error
+
+	cmp eax, 0x00000000
+	je .error
+
+	; add the IP to the cache, so we don't actually do a DNS request if we need it again
 	mov edi, [dns_cache_entries]
 	shl edi, 9
 	add edi, [dns_cache]
@@ -296,7 +303,7 @@ dns_request:
 	ret
 
 .error:
-	mov eax, 0
+	mov eax, 0x00000000
 	ret
 
 align 4

@@ -15,6 +15,7 @@ NET_RECEIVE_PACKET		= 0x0011
 NET_GET_MAC			= 0x0012
 
 network_available		db 0
+socket_lock			db 0
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
 router_mac:			times 6 db 0xFF
@@ -372,13 +373,29 @@ net_receive:
 ; Handles unrequested incoming packets, from system idle process
 
 net_handle:
+	cmp [open_sockets], 0		; so we don't accidentally mess with the socket's stuff
+	jne .quit
+
 	mov edi, [net_buffer]
 	call net_receive
 
 	cmp eax, 0
 	je .quit
 
-	mov [.size], eax
+	mov ecx, eax		; ecx = size
+	call net_handle_packet
+	jmp net_handle
+
+.quit:
+	ret
+
+; net_handle_packet:
+; Handles a single packet
+; In\	ECX = Size
+; Out\	Nothing
+
+net_handle_packet:
+	mov [.size], ecx
 
 	; check packet type
 	mov esi, [net_buffer]
@@ -415,11 +432,11 @@ net_handle:
 
 .ip:
 	call ip_handle
-	jmp net_handle
+	ret
 
 .arp:
 	call arp_handle
-	jmp net_handle
+	ret
 
 align 4
 .size				dd 0
