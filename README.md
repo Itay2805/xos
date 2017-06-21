@@ -1,5 +1,5 @@
-![](https://s11.postimg.org/a0wkezumr/Virtual_Box_x_OS_21_06_2017_19_56_32.png)
-![](https://s12.postimg.org/5g8yqjot9/xos_network.png)
+![](https://s11.postimg.org/a0wkezumr/Virtual_Box_x_OS_21_06_2017_19_56_32.png)  
+![](https://s12.postimg.org/5g8yqjot9/xos_network.png)  
 xOS is a graphical operating system written for the PC entirely in assembly language. It aims to be modern and fully functional, yet be fast, small and simple.  
 
 ## Features
