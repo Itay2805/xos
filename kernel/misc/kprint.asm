@@ -95,11 +95,32 @@ com1_send_byte:
 	cmp [debug_mode], 1
 	jne .send
 
-	mov ebx, 0
-	mov ecx, 0xFFFFFF
-	call set_text_color
+	cmp [.escape], 1
+	je .is_escape
+
+	cmp al, 0x1B		; escape sequence
+	je .skip_escape
+
+.put:
+	;mov ebx, 0
+	;mov ecx, 0xFFFFFF
+	;call set_text_color
 
 	call put_char
+	jmp .send
+
+.skip_escape:
+	mov [.escape], 1
+	jmp .send
+
+.is_escape:
+	cmp al, 'm'
+	je .end_escape
+
+	jmp .send
+
+.end_escape:
+	mov [.escape], 0
 
 .send:
 	cmp [com1_port], 0
@@ -135,6 +156,8 @@ com1_send_byte:
 	mov [com1_last_byte], 10
 	popa
 	ret
+
+.escape				db 0
 
 ; com1_send:
 ; Sends an ASCIIZ string via COM1

@@ -383,7 +383,7 @@ align 4
 	include "kernel/usb/hub.asm"		; Generic USB hub interface
 	include "kernel/usb/uhci.asm"		; USB 1.1 (UHCI)
 	include "kernel/usb/ohci.asm"		; USB 1.1 (OHCI)
-	;include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
+	include "kernel/usb/ehci.asm"		; USB 2.0 (EHCI)
 	;include "kernel/usb/xhci.asm"		; USB 3.0 (xHCI)
 	;include "kernel/usb/msd.asm"		; USB Mass Storage Device Driver
 	include "kernel/usb/hid.asm"		; USB Human Interface Device Driver

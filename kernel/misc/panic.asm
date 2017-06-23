@@ -246,10 +246,10 @@ exception_handler:
 	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov [debug_mode],1
 
-	mov ebx, 0
+	mov ebx, 0x0072B8
 	call clear_screen
 
-	mov ebx, 0
+	mov ebx, 0x0072B8
 	mov ecx, 0xFFFFFF
 	call set_text_color
 
@@ -264,6 +264,25 @@ exception_handler:
 
 	mov eax, [esp+12+4+4+4+4]
 	mov [dump_ss], ax
+
+	mov esi, .kernel_msg
+	mov cx, 16
+	mov dx, 16
+	call print_string_transparent
+
+	mov ax, 0
+	mov bx, 4*16
+	mov esi, [screen.width]
+	mov edi, 10*16
+	mov edx, 0
+	call fill_rect
+
+	mov [screen.x], 0
+	mov [screen.y], 5
+
+	mov ebx, 0
+	mov ecx, 0xFFFFFF
+	call set_text_color
 
 	mov esi, .kmsg
 	call kprint
@@ -291,6 +310,8 @@ exception_handler:
 	cli
 	hlt
 
+.kernel_msg		db "An error has occured and your PC must be rebooted.",10
+			db "The information shown below may help resolve this error. Please report it.",10,0
 .kmsg			db "KERNEL PANIC: ",0
 .umsg			db "EXCEPTION IN USER APPLICATION PID ",0
 .colon			db ": ",0

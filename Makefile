@@ -80,6 +80,9 @@ runusb:
 runohci:
 	qemu-system-i386 -m 128 -vga std -serial stdio -hda disk.hdd -device pci-ohci,id=usbohci -device usb-mouse,bus=usbohci.0 -device usb-kbd,bus=usbohci.0 -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
 
+runehci:
+	qemu-system-i386 -m 128 -vga std -serial stdio -hda disk.hdd -device usb-ehci,id=usbehci -device usb-mouse,bus=usbehci.0 -device usb-kbd,bus=usbehci.0 -net nic,model=e1000 -net user -net dump,file=qemudump.pcap
+
 clean:
 	if [ -d "out/libxos" ]; then rm out/libxos/*; rmdir out/libxos; fi
 	if [ -d "out/circus" ]; then rm out/circus/*; rmdir out/circus; fi

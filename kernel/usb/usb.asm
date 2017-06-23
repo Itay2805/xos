@@ -101,10 +101,10 @@ usb_init:
 	mov [usb_controllers], eax
 
 	; in order...
-	call uhci_init
-	call ohci_init
 	;call ehci_init
 	;call xhci_init
+	call uhci_init
+	call ohci_init
 
 	ret
 
@@ -228,8 +228,8 @@ usb_reset_controller:
 	cmp cl, USB_OHCI
 	je .ohci
 
-	;cmp cl, USB_EHCI
-	;je .ehci
+	cmp cl, USB_EHCI
+	je .ehci
 
 	;cmp cl, USB_XHCI
 	;je .xhci
@@ -243,6 +243,9 @@ usb_reset_controller:
 .ohci:
 	call ohci_reset_controller
 	jmp .next
+
+.ehci:
+	call ehci_reset_controller
 
 .next:
 	mov eax, [.controller]
