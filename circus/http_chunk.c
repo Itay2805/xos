@@ -7,10 +7,10 @@
 #include <xos.h>
 #include <string.h>
 
-// copy_number:
+// copy_hex:
 // Copies a hex number represented in ASCII digits
 
-size_t copy_number(char *source, char *destination)
+size_t copy_hex(char *source, char *destination)
 {
 	size_t size = 0;
 	while((source[size] >= 'A' && source[size] <= 'F') || (source[size] >= 'a' && source[size] <= 'f') || (source[size] >= '0' && source[size] <= '9'))
@@ -23,10 +23,26 @@ size_t copy_number(char *source, char *destination)
 	return size;
 }
 
-// hex_to_str:
-// Converts a hex number represented in ASCII digits to a string
+// copy_dec:
+// Copies a decimal number represented in ASCII digits
 
-uint32_t hex_to_str(char *string)
+size_t copy_dec(char *source, char *destination)
+{
+	size_t size = 0;
+	while(source[size] >= '0' && source[size] <= '9')
+	{
+		destination[size] = source[size];
+		size++;
+	}
+
+	destination[size] = 0;		// null terminator
+	return size;
+}
+
+// hex_to_int:
+// Converts a hex number represented in ASCII digits to an integer
+
+uint32_t hex_to_int(char *string)
 {
 	uint32_t number = 0;
 	size_t index, size;
@@ -68,6 +84,38 @@ uint32_t hex_to_str(char *string)
 	return number;
 }
 
+// dec_to_int:
+// Converts a decimal number represented in ASCII digits to an integer
+
+uint32_t dec_to_int(char *string)
+{
+	uint32_t number = 0;
+	size_t index, size;
+
+	size = strlen(string);
+
+	if(!size)
+		return 0;
+
+	index = size;
+
+	uint32_t multiplier = 1;
+	uint8_t val;
+
+	while(index != 0)
+	{
+		val = string[index - 1];
+		val -= '0';
+
+		number += (uint32_t)val * multiplier;
+		multiplier = multiplier * 10;
+
+		index--;
+	}
+
+	return number;
+}
+
 // http_decode_chunk:
 // Decodes chunked HTTP data
 
@@ -96,8 +144,8 @@ void *http_decode_chunk(char *data, size_t response_size, size_t *final_size)
 
 	while(1)
 	{
-		chunk_str_size = copy_number(data, chunk_size_str);
-		chunk_size = hex_to_str(chunk_size_str);
+		chunk_str_size = copy_hex(data, chunk_size_str);
+		chunk_size = hex_to_int(chunk_size_str);
 
 		if(chunk_size == 0)		// end of chunks?
 			break;

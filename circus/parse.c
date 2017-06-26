@@ -20,7 +20,8 @@ extern char no_file_status_text[];
 
 html_parse_t *parse_buffer;
 size_t parse_buffer_size;
-size_t html_offset;
+size_t html_offset, html_size;
+char *html_buffer;
 
 void parse_tag(unsigned char *data, size_t size);
 void parse_attributes(unsigned char *data);
@@ -33,7 +34,7 @@ size_t copy_text(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '<' && html[i] >= 0x20 && html[i] <= 0x7F)
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != '<' && html[i] >= 0x20 && html[i] <= 0x7F)
 	{
 		if(html[i] == 0xA0)
 			buffer[i] = ' ';
@@ -55,7 +56,7 @@ size_t copy_tag(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '/' && html[i] != ' ' && html[i] != '<' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != '/' && html[i] != ' ' && html[i] != '<' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
 	{
 		buffer[i] = html[i];
 		i++;
@@ -72,7 +73,7 @@ size_t copy_attribute_name(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '=' && html[i] != '>' && html[i] != ' ' && html[i] != '\n' && html[i] != '\r')
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != '=' && html[i] != '>' && html[i] != ' ' && html[i] != '\n' && html[i] != '\r')
 	{
 		buffer[i] = html[i];
 		i++;
@@ -89,7 +90,7 @@ size_t copy_attribute_dq(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '"' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != '"' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
 	{
 		buffer[i] = html[i];
 		i++;
@@ -106,7 +107,7 @@ size_t copy_attribute_sq(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != '\'' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != '\'' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
 	{
 		buffer[i] = html[i];
 		i++;
@@ -123,7 +124,7 @@ size_t copy_attribute_nq(unsigned char *html, unsigned char *buffer)
 {
 	size_t i = 0;
 
-	while(html[i] != 0 && html[i] != ' ' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
+	while((uint32_t)(html + i) < (uint32_t)(html_buffer + html_size) && html[i] != 0 && html[i] != ' ' && html[i] != '>' && html[i] != '\n' && html[i] != '\r')
 	{
 		buffer[i] = html[i];
 		i++;
@@ -208,6 +209,9 @@ html_parse_t *parse(unsigned char *data, size_t size)
 	html_offset = 0;
 	html_text_t *text;
 	html_parse_t *end;
+
+	html_size = size;
+	html_buffer = data;
 
 	while(1)
 	{

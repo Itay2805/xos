@@ -91,6 +91,11 @@ int handle_canvas_event(short x, short y)
 		{
 			if(x >= link->x && y >= link->y && x <= link->endx && y <= link->endy)
 			{
+				// no support for interdocument links yet --
+				// -- prevent crashes here
+				if(link->address[0] == '#')
+					return 0;
+
 				// follow the link
 				strcpy(link_addr, link->address);
 

@@ -39,6 +39,11 @@ void render_clear(unsigned int color);
 void render_text(render_op_text *text);
 void text_get_end(render_op_text *text);
 
+extern size_t copy_hex(char *source, char *destination);
+extern size_t copy_dec(char *source, char *destination);
+extern uint32_t hex_to_int(char *string);
+extern uint32_t dec_to_int(char *string);
+
 // render:
 // Rendering core
 
@@ -276,7 +281,24 @@ void create_render_tree(html_parse_t *data)
 
 				if(render_is_link == 1 && strcmp(attribute->attribute, "href") == 0)
 				{
-					strcpy(render_link_addr, attribute->value);
+					//strcpy(render_link_addr, attribute->value);
+					size_t link_index = 0, link_dest_index = 0;
+					while(attribute->value[link_index] != 0)
+					{
+						if(memcmp(attribute->value + link_index, "&amp;", 5) == 0)
+						{
+							render_link_addr[link_dest_index] = '&';
+							link_index += 5;
+						} else
+						{
+							render_link_addr[link_dest_index] = attribute->value[link_index];
+							link_index++;
+						}
+
+						link_dest_index++;
+					}
+
+					render_link_addr[link_dest_index] = 0;		// null terminator
 				}
 
 				break;
@@ -581,12 +603,16 @@ void text_get_end(render_op_text *text)
 
 void render_text(render_op_text *text)
 {
-	char *string = text->text;
-	short index = 0;
+	unsigned char *string = (unsigned char*)text->text;
+	size_t index = 0;
 
 	short x = text->x - render_x_pos;
 	short y = text->y - render_y_pos;
 
+	char sequence_str[16];
+	uint32_t sequence;
+
+start:
 	while(string[index] >= 0x20 && string[index] <= 0x7F)
 	{
 		if(string[index] != '\r' && string[index] != '\n' && string[index] != '\t')
@@ -600,18 +626,68 @@ void render_text(render_op_text *text)
 			if(y >= canvas_height - 16)
 				return;
 
+			// handle special character sequences
+			if(memcmp(string+index, "&nbsp;", 6) == 0)
+			{
+				render_char(' ', x, y, text);
+				x += 8;
+				index += 6;
+				goto start;
+			}
+
+			else if(memcmp(string+index, "&amp;", 5) == 0)
+			{
+				render_char('&', x, y, text);
+				x += 8;
+				index += 5;
+				goto start;
+			}
+
+			else if(string[index] == '&' && string[index+1] == '#')
+			{
+				memset(sequence_str, 0, 16);
+
+				// here we have to handle a number
+				index += 2;
+				if(string[index] == 'x' || string[index] == 'X')	// hex or decimal?
+				{
+					// hex
+					index++;
+					index += copy_hex(string + index, sequence_str);
+					sequence = hex_to_int(sequence_str);
+					index++;
+				} else
+				{
+					// decimal
+					index += copy_dec(string + index, sequence_str);
+					sequence = dec_to_int(sequence_str);
+					index++;
+				}
+
+				// supported characters
+				if(sequence == 187)
+				{
+					render_char('>', x, y, text);
+				} else
+				{
+					// unsupported character
+					goto start;
+				}
+
+				x += 8;
+				goto start;
+			}
+
 			if(text->font_weight > 0)
 			{
 				render_char(string[index], x, y, text);
 				render_char(string[index], x+1, y, text);
+				x += 8;
 			} else
 			{
 				render_char(string[index], x, y, text);
+				x += 8;
 			}
-
-			render_char(string[index], x, y, text);
-
-			x += 8;
 		}
 
 		index++;
