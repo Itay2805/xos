@@ -7,7 +7,7 @@ org 0x1000
 
 	jmp 0x0000:kmain16
 
-	kernel_version			db "xOS32 v0.11 (19 June 2017)",0
+	kernel_version			db "xOS32 v0.11 (28 June 2017)",0
 	copyright_str			db "Copyright (C) 2016-2017 by Omar Mohammad.",0
 	newline				db 10,0
 
@@ -257,7 +257,7 @@ kmain32:
 	call acpi_init
 	call acpi_aml_init
 	call cmos_init
-	call pci_init
+	;call pci_init		; this really doesn't do anything
 	call usb_init
 	call blkdev_init
 	call vfs_init
@@ -285,34 +285,12 @@ boot_splash_buffer	dd 0
 ; It handles incoming network packets without the need for PCI IRQs
 align 32
 idle_process:
-	call net_handle		; handle unrequested incoming packets
-
-	cmp [network_available], 0
-	jne .yield
-
-	call net_handle
-
-	inc [.network_timeout]
-	cmp [.network_timeout], TIMER_FREQUENCY/2
-	jle .yield
-
-	call dhcp_init
-
-	cmp [network_available], 0
-	je .yield
-
-	call net_handle
-	call arp_gratuitous
-	call net_handle
-
-.yield:
 	sti
 	hlt
-	call yield		; and go on..
-	jmp idle_process
 
-align 4
-.network_timeout		dd 0
+	call net_idle
+	call yield
+	jmp idle_process
 
 	;
 	; END OF MAIN KERNEL CODE

@@ -369,6 +369,38 @@ net_receive:
 	add [netstat.received_bytes], eax
 	ret
 
+; net_idle:
+; Called every time the system is idle, to handle unrequested incoming packets
+
+net_idle:
+	cmp [network_available], 1
+	je .quit
+
+	; if we don't have a network connection --
+	; -- keep polling to try and make a connection here
+	inc [.network_timeout]
+	cmp [.network_timeout], TIMER_FREQUENCY
+	jl .quit
+
+	mov [.network_timeout], 0
+	call dhcp_init
+
+	cmp [network_available], 0
+	je .quit
+
+	call net_handle
+	call arp_gratuitous	; let other PCs know we're alive
+	;call icmp_ping		; let the router know we're alive
+	call net_handle
+
+.quit:
+	call net_handle
+	ret
+
+align 4
+.network_timeout		dd 0
+
+
 ; net_handle:
 ; Handles unrequested incoming packets, from system idle process
 

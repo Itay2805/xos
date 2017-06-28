@@ -578,9 +578,11 @@ void render_char(char character, short x, short y, render_op_text *formatting)
 
 void text_get_end(render_op_text *text)
 {
-	char *string = text->text;
-	short index = 0;
+	unsigned char *string = (unsigned char*)text->text;
+	size_t index = 0;
+	char sequence_str[16];
 
+start:
 	while(string[index] >= 0x20 && string[index] <= 0x7F)
 	{
 		if(string[index] != '\r' && string[index] != '\n' && string[index] != '\t')
@@ -589,6 +591,43 @@ void text_get_end(render_op_text *text)
 			{
 				render_x = 0;
 				render_y += 16;
+			}
+
+			if(memcmp(string+index, "&nbsp;", 6) == 0)
+			{
+				render_x += 8;
+				index += 6;
+				goto start;
+			}
+
+			else if(memcmp(string+index, "&amp;", 5) == 0)
+			{
+				render_x += 8;
+				index += 5;
+				goto start;
+			}
+
+			else if(string[index] == '&' && string[index+1] == '#')
+			{
+				memset(sequence_str, 0, 16);
+
+				// here we have to handle a number
+				index += 2;
+				if(string[index] == 'x' || string[index] == 'X')	// hex or decimal?
+				{
+					// hex
+					index++;
+					index += copy_hex(string + index, sequence_str);
+					index++;
+				} else
+				{
+					// decimal
+					index += copy_dec(string + index, sequence_str);
+					index++;
+				}
+
+				render_x += 8;
+				goto start;
 			}
 
 			render_x += 8;
