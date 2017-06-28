@@ -22,13 +22,7 @@ transmit:
 	mov [.packet], eax
 
 	inc [transmit_descriptor]
-	cmp [transmit_descriptor], 3
-	jg .zero_descriptor
-
-	jmp .start
-
-.zero_descriptor:
-	mov [transmit_descriptor], 0
+	and [transmit_descriptor], 3
 
 .start:
 	movzx dx, [transmit_descriptor]

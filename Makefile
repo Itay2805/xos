@@ -11,9 +11,6 @@ all:
 	fasm tmp/drivers.asm out/drivers.bin
 	fasm tmp/netio.asm out/netio.bin
 	fasm tmp/fsusage.asm out/fsusage.bin
-	fasm hello/hello.asm out/hello.exe
-	fasm draw/draw.asm out/draw.exe
-	fasm buttontest/buttontest.asm out/buttontest.exe
 	fasm calc/calc.asm out/calc.exe
 	fasm shell/shell.asm out/shell.exe
 	fasm 2048/2048.asm out/2048.exe
@@ -50,9 +47,6 @@ all:
 	dd if=out/drivers.bin conv=notrunc bs=512 seek=1300 of=disk.hdd
 	dd if=out/netio.bin conv=notrunc bs=512 seek=1301 of=disk.hdd
 	dd if=out/kernel32.sys conv=notrunc bs=512 seek=200 of=disk.hdd
-	dd if=out/hello.exe conv=notrunc bs=512 seek=1021 of=disk.hdd
-	dd if=out/draw.exe conv=notrunc bs=512 seek=1022 of=disk.hdd
-	dd if=out/buttontest.exe conv=notrunc bs=512 seek=1042 of=disk.hdd
 	dd if=out/calc.exe conv=notrunc bs=512 seek=1062 of=disk.hdd
 	dd if=out/shell.exe conv=notrunc bs=512 seek=1000 of=disk.hdd
 	dd if=wp/wp4.bmp conv=notrunc bs=512 seek=8000 of=disk.hdd

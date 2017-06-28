@@ -68,48 +68,6 @@ wp1:
 	.flags		db 0x01		; file present
 	.reserved:	times 13 db 0
 
-hello:
-	.name		db "hello.exe",0
-			times 32 - ($-.name) db 0
-
-	.lba		dd 1021
-	.size_sects	dd 1
-	.size_bytes	dd 1*512
-	.time		db 10+12
-			db 48
-	.date		db 2, 2
-	.year		dw 2017
-	.flags		db 0x01		; file present
-	.reserved:	times 13 db 0
-
-draw:
-	.name		db "draw.exe",0
-			times 32 - ($-.name) db 0
-
-	.lba		dd 1022
-	.size_sects	dd 20
-	.size_bytes	dd 20*512
-	.time		db 10+12
-			db 48
-	.date		db 2, 2
-	.year		dw 2017
-	.flags		db 0x01		; file present
-	.reserved:	times 13 db 0
-
-buttontest:
-	.name		db "buttontest.exe",0
-			times 32 - ($-.name) db 0
-
-	.lba		dd 1042
-	.size_sects	dd 20
-	.size_bytes	dd 20*512
-	.time		db 10+12
-			db 48
-	.date		db 2, 2
-	.year		dw 2017
-	.flags		db 0x01		; file present
-	.reserved:	times 13 db 0
-
 calc:
 	.name		db "calc.exe",0
 			times 32 - ($-.name) db 0
