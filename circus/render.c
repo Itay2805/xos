@@ -145,7 +145,7 @@ void create_render_tree(html_parse_t *data)
 					render_is_link = 1;
 				}
 
-				else if(strcmp(tag->tag, "h1") == 0 || strcmp(tag->tag, "h2") == 0 || strcmp(tag->tag, "h3") == 0 || strcmp(tag->tag, "h4") == 0)
+				else if(strcmp(tag->tag, "h1") == 0 || strcmp(tag->tag, "h2") == 0 || strcmp(tag->tag, "h3") == 0 || strcmp(tag->tag, "h4") == 0 || strcmp(tag->tag, "h5") == 0 || strcmp(tag->tag, "h6") == 0)
 				{
 					render_bold_level++;
 					render_x = 0;
