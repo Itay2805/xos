@@ -247,18 +247,17 @@ driver_reset:
 	test al, RTL8139_COMMAND_RESET
 	jnz .wait_reset
 
-	; configure the multicast
+	; configure the multicast mask
+	; spec says we can only access these 8 registers as 2 DWORDs
 	mov dx, [io]
 	add dx, RTL8139_MULTICAST_ADDRESS
-	mov ecx, 8
-	mov al, 0xFF
+	mov eax, 0xFFFFFFFF
+	out dx, eax
+	add dx, 4
+	out dx, eax
+	call iowait
 
-.multicast_loop:
-	out dx, al
-	inc dx
-	loop .multicast_loop
-
-	; configure the receive buffer
+	; configure the receiver
 	mov eax, [rx_buffer]
 	mov ebp, XOS_VIRTUAL_TO_PHYSICAL	; for DMA to be happy..
 	int 0x61
