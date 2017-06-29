@@ -15,7 +15,7 @@ NET_RECEIVE_PACKET		= 0x0011
 NET_GET_MAC			= 0x0012
 
 network_available		db 0
-socket_lock			db 0
+network_driver_available	db 0
 my_mac:				times 6 db 0		; PC's MAC address
 my_ip:				times 4 db 0		; PC's IPv4 address
 router_mac:			times 6 db 0xFF
@@ -65,6 +65,7 @@ net_init:
 	mov [net_mem], ebx
 	mov [net_mem_size], ecx
 	mov [net_entry], edx
+	mov [network_driver_available], 1
 
 	; okay, driver loaded
 	; now we need to initialize and reset the device
@@ -140,6 +141,7 @@ net_init:
 	call kprint
 
 	mov [network_available], 0
+	mov [network_driver_available], 0
 	ret
 
 .rtl8139_filename:		db "drivers/netio/rtl8139.sys",0
@@ -239,6 +241,9 @@ align 4
 ; Out\	EAX = 0 on success
 
 net_send:
+	cmp [network_driver_available], 1
+	jne .no_driver
+
 	mov [.destination], ebx
 	mov [.size], ecx
 	mov [.type], dx
@@ -337,6 +342,10 @@ net_send:
 	pop eax
 	ret
 
+.no_driver:
+	mov eax, 1
+	ret
+
 align 4
 .source				dd 0
 .destination			dd 0
@@ -353,6 +362,9 @@ align 4
 ; Out\	EAX = Byte count received
 
 net_receive:
+	cmp [network_driver_available], 1
+	jne .no_driver
+
 	push edi
 
 	mov eax, DRIVER_LOAD_ADDRESS
@@ -369,10 +381,17 @@ net_receive:
 	add [netstat.received_bytes], eax
 	ret
 
+.no_driver:
+	mov eax, 0
+	ret
+
 ; net_idle:
 ; Called every time the system is idle, to handle unrequested incoming packets
 
 net_idle:
+	cmp [network_driver_available], 1
+	jne .really_quit
+
 	cmp [network_available], 1
 	je .quit
 
@@ -395,6 +414,8 @@ net_idle:
 
 .quit:
 	call net_handle
+
+.really_quit:
 	ret
 
 align 4
