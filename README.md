@@ -13,8 +13,14 @@ xOS is a graphical operating system written for the PC entirely in assembly lang
 * **Storage:** IDE and SATA hard disks.
 * **Graphics:** VESA 2.0 or newer.
 * **Input:** PS/2 and USB mice and keyboards.
-* **Network:** Realtek 8139 and Intel PRO/1000 cards.
+* **Networking:** Realtek 8139 and Intel PRO/1000 cards.
 * **Others:** PCI, ACPI, and other basic PC hardware.
+
+## To-do list
+* **USB:** Add support for USB 2.0 and 3.0, as well as USB mass storage devices.
+* **Networking:** Improve the networking stack, and write/port drivers for more ethernet cards (Realtek 8169 and AMD PCNET).
+* **Sound:** Write drivers for common sound cards (AC97 and Intel HDA) and a basic WAV player. (Bonus task: add MP3 player too.)
+* **General applications:** Write a text editor and a file manager.
 
 ## Testing xOS
 xOS is provided as a disk image. `disk.hdd` in this repository is the latest unstable build. It can be used with QEMU or VirtualBox, but it performs best on VirtualBox. Stabler builds are in the Releases tab. For networking, use one of the Intel PRO/1000 options in VirtualBox settings. To run in QEMU, run `make run`. Instructions for running stabler builds are provided with their readme files.  
