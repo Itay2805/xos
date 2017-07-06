@@ -156,94 +156,70 @@ dns_request:
 	sub edi, [.packet]
 	mov [.packet_size], edi
 
-	; okay, send the packet by UDP
+	; okay, open a socket
 	inc [dns_port]
 
-	mov eax, dword[my_ip]		; my IP
-	mov ebx, dword[dns_ip]		; destination IP - DNS server
-	mov ecx, [.packet_size]
-	mov edx, (DNS_DESTINATION_PORT shl 16); or DNS_SOURCE_PORT
+	mov al, SOCKET_PROTOCOL_UDP
+	mov ebx, [dns_ip]
+	mov edx, (DNS_DESTINATION_PORT shl 16)
 	mov dx, [dns_port]
+	call socket_open
+
+	cmp eax, -1
+	je .error
+
+	mov [.socket], eax
+
+	; send the DNS message
+	mov eax, [.socket]
 	mov esi, [.packet]
-	mov edi, router_mac
-	call udp_send
+	mov ecx, [.packet_size]
+	mov dl, 0		; TCP flags, unused for UDP
+	call socket_write
 
 	cmp eax, 0
-	jne .error
+	jne .error_close
 
-	; clear the packet data
+	; receive the response
 	mov edi, [.packet]
-	mov al, 0
+	xor al, al
 	mov ecx, 8192
 	rep stosb
 
-.receive_start:
-	; receive a packet in the same buffer
-	mov [.wait_loops], 0
-	inc [.packet_count]
-	cmp [.packet_count], NET_TIMEOUT
-	jge .error
+	mov ecx, 0		; as a counter
 
-.receive_loop:
-	inc [.wait_loops]
-	cmp [.wait_loops], NET_TIMEOUT*2
-	jg .error
+.try_receive:
+	push ecx
 
+	mov eax, [.socket]
 	mov edi, [.packet]
-	call net_receive
+	call socket_read
 
+	pop ecx
 	cmp eax, 0
-	jne .check_received
+	jne .receive_done
 
-	jmp .receive_loop
+	inc ecx
+	cmp ecx, 3
+	jg .error_close
 
-.check_received:
+	jmp .try_receive
+
+.receive_done:
+	mov eax, [.socket]
+	call socket_close
+
 	mov esi, [.packet]
-	mov ax, [esi+12]
-	xchg al, ah
-	cmp ax, IP_PROTOCOL_TYPE	; IP packet?
-	jne .receive_start
-
-	; read the IP packet
-	mov esi, [.packet]
-	add esi, ETHERNET_HEADER_SIZE
-	cmp byte[esi+9], UDP_PROTOCOL_TYPE	; UDP?
-	jne .receive_start
-
-	add esi, IP_HEADER_SIZE			; to TCP/UDP header
-	mov ax, [esi]		; the reply source must be our destination
-	xchg al, ah
-	cmp ax, DNS_DESTINATION_PORT
-	jne .receive_start
-
-	mov ax, [esi+2]		; and reply destination must be our source...
-	xchg al, ah
-	;cmp ax, DNS_SOURCE_PORT
-	cmp ax, [dns_port]
-	jne .receive_start
-
-	add esi, UDP_HEADER_SIZE	; to the DNS packet..
-
-	mov [.dns_body], esi
-
-	mov ax, [esi+2]
-	xchg al, ah
-	test ax, 0x8000			; message is a response?
-	jz .receive_start
-
-	and ax, 0x000F
-	cmp ax, 0			; query success?
-	jne .receive_start
 
 	mov ax, [esi+6]			; answer count
 	xchg al, ah
 	cmp ax, 0			; at least one answer
-	je .receive_start
+	je .error
 
 	mov ax, [esi+4]			; question count
 	xchg al, ah
 	cmp ax, 1
-	jne .receive_start
+	jne .error
 
 	add esi, DNS_HEADER_SIZE	; to questions
 
@@ -263,17 +239,17 @@ dns_request:
 	mov ax, [esi+2]		; answer type
 	xchg al, ah
 	cmp ax, 1
-	jne .receive_start
+	jne .error
 
 	mov ax, [esi+4]		; class
 	xchg al, ah
 	cmp ax, 1
-	jne .receive_start
+	jne .error
 
 	mov ax, [esi+10]	; data length
 	xchg al, ah
 	cmp ax, 4		; IP address length
-	jne .receive_start
+	jne .error
 
 	mov eax, [esi+12]	; actual IP address -- the value we wanted from the beginning
 	mov [.ip], eax
@@ -302,6 +278,10 @@ dns_request:
 	mov eax, [.ip]
 	ret
 
+.error_close:
+	mov eax, [.socket]
+	call socket_close
+
 .error:
 	mov eax, 0x00000000
 	ret
@@ -312,11 +292,9 @@ align 4
 .packet					dd 0
 .tmp					dd 0
 .packet_size				dd 0
-.wait_loops				dd 0
-.packet_count				dd 0
-.dns_body				dd 0
 .domain_size				dd 0
 .ip					dd 0
+.socket					dd 0
 .label_size				db 0
 
 

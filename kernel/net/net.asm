@@ -273,8 +273,8 @@ net_send:
 	mov ecx, [.size]
 	rep movsb
 
-	cmp [.size], 46		; do we need to make a padding
-	jl .padding		; yeah we do..
+	;cmp [.size], 46		; do we need to make a padding
+	;jl .padding		; yeah we do..
 
 	mov ecx, [.size]
 	add ecx, ETHERNET_HEADER_SIZE

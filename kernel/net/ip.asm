@@ -34,7 +34,7 @@ ip_send:
 	; construct the IP header
 	mov edi, [.packet]
 	mov al, 0x45		; 4 = IP version (IPv4)
-				; 5 = size in DWORDs (5*2 = 20 = IP header size)
+				; 5 = size in DWORDs (5*4 = 20 = IP header size)
 	stosb
 
 	mov al, 0		; we don't need this

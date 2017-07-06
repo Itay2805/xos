@@ -100,8 +100,8 @@ socket_open:
 	cmp al, SOCKET_PROTOCOL_TCP
 	je .open_tcp
 
-	;cmp al, SOCKET_PROTOCOL_UDP
-	;je .open_udp
+	cmp al, SOCKET_PROTOCOL_UDP
+	je .open_udp
 
 	; undefined protocol
 	mov [kprint_type], KPRINT_TYPE_ERROR
@@ -201,6 +201,48 @@ socket_open:
 	mov eax, [.socket]
 	ret
 
+.open_udp:
+	mov [.ip], ebx
+	mov [.source], dx
+	shr edx, 16
+	mov [.dest], dx
+
+	; find a free socket
+	call socket_find_handle
+	cmp eax, -1
+	je .error
+	mov [.socket], eax
+
+	; create the socket handle
+	mov esi, [.socket]
+	shl esi, 5
+	add esi, [sockets]
+
+	mov byte[esi+SOCKET_FLAGS], SOCKET_FLAGS_PRESENT
+	mov byte[esi+SOCKET_PROTOCOL], SOCKET_PROTOCOL_UDP
+	mov word[esi+SOCKET_WINDOW], UDP_WINDOW
+
+	; these fields are unused for UDP
+	mov dword[esi+SOCKET_SEQ], 0
+	mov dword[esi+SOCKET_ACK], 0
+	mov dword[esi+SOCKET_INITIAL_SEQ], 0
+
+	mov eax, [.ip]
+	mov [esi+SOCKET_IP], eax
+
+	mov ax, [.source]
+	mov [esi+SOCKET_SOURCE], ax
+
+	mov ax, [.dest]
+	mov [esi+SOCKET_DEST], ax
+
+	; unlike TCP, we don't need to "create" a connection
+	; so just return the socket handle
+	call net_handle
+	inc [open_sockets]
+	mov eax, [.socket]
+	ret
+
 .error_close:
 	mov esi, [.socket]
 	shl esi, 5
@@ -248,8 +290,8 @@ socket_close:
 	cmp al, SOCKET_PROTOCOL_TCP
 	je .tcp
 
-	;cmp al, SOCKET_PROTOCOL_UDP
-	;je .udp
+	cmp al, SOCKET_PROTOCOL_UDP
+	je .udp
 
 	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
@@ -336,6 +378,19 @@ socket_close:
 	dec [open_sockets]
 	ret
 
+.udp:
+	; simply clear the socket handle, because there's nothing we need to do --
+	; -- to close a connection, unlike TCP
+	mov edi, [.socket]
+	shl edi, 5
+	add edi, [sockets]
+	mov ecx, SOCKET_SIZE
+	xor al, al
+	rep stosb
+
+	dec [open_sockets]
+	ret
+
 .return:
 	ret
 
@@ -375,8 +430,8 @@ socket_write:
 	cmp al, SOCKET_PROTOCOL_TCP
 	je .write_tcp
 
-	;cmp al, SOCKET_PROTOCOL_UDP
-	;je .write_udp
+	cmp al, SOCKET_PROTOCOL_UDP
+	je .write_udp
 
 	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
@@ -447,6 +502,31 @@ socket_write:
 	pop eax
 	ret
 
+.write_udp:
+	; transmit the packet
+	mov esi, [.socket]
+	shl esi, 5
+	add esi, [sockets]
+
+	mov eax, [esi+SOCKET_IP]
+	mov [.ip], eax
+	mov ax, [esi+SOCKET_SOURCE]
+	mov [.source], ax
+	mov ax, [esi+SOCKET_DEST]
+	mov [.dest], ax
+
+	mov eax, [my_ip]		; source is us
+	mov ebx, [.ip]			; destination IP is the remote host
+	mov ecx, [.size]		; data payload size
+	movzx edx, [.dest]
+	shl edx, 16
+	mov dx, [.source]
+	mov esi, [.payload]
+	mov edi, router_mac
+	call udp_send
+
+	ret
+
 .error:
 	mov eax, -1
 	ret
@@ -493,8 +573,8 @@ socket_read:
 	cmp al, SOCKET_PROTOCOL_TCP
 	je .read_tcp
 
-	;cmp al, SOCKET_PROTOCOL_UDP
-	;je .read_udp
+	cmp al, SOCKET_PROTOCOL_UDP
+	je .read_udp
 
 	mov [kprint_type], KPRINT_TYPE_ERROR
 	mov esi, .undefined_protocol
@@ -573,17 +653,35 @@ socket_read:
 	cmp al, TCP_PROTOCOL_TYPE
 	jne .tcp_handle_other
 
-	; this packet is for us, but it may or may not be in the correct order
-	; for simplicity, only accept packets sent in order
-	; most servers will resend them if we don't respond anyway
 	mov ax, [esi+2]
 	xchg al, ah
 	movzx eax, ax
 	mov [.ip_size], eax
 
-	add esi, IP_HEADER_SIZE		; to TCP header
+	mov al, [esi]
+	and eax, 0x0F
+	shl eax, 2
+	add esi, eax			; to TCP header
 	mov [.tcp], esi
 
+	; check the source and destination ports
+	mov edi, [.socket]
+	shl edi, 5
+	add edi, [sockets]
+
+	mov ax, [esi]		; source port
+	xchg al, ah
+	cmp ax, [edi+SOCKET_DEST]
+	jne .tcp_handle_other
+
+	mov ax, [esi+2]		; destination port
+	xchg al, ah
+	cmp ax, [edi+SOCKET_SOURCE]
+	jne .tcp_handle_other
+
+	; this packet is for us, but it may or may not be in the correct order
+	; for simplicity, only accept packets sent in order
+	; most servers will resend them if we don't respond anyway
 	mov esi, [.tcp]
 	mov al, [esi+13]
 	test al, TCP_SYN		; did we receive a SYN packet?
@@ -751,6 +849,128 @@ socket_read:
 	popa
 
 	ret
+
+.read_udp:
+	mov esi, [.socket]
+	shl esi, 5
+	add esi, [sockets]
+
+	mov eax, [esi+SOCKET_IP]
+	mov [.ip], eax			; remote IP
+
+	mov ecx, UDP_WINDOW
+	call kmalloc
+	mov [.packet], eax
+
+	mov [.packet_count], 0
+
+.receive_udp_start:
+	mov [.wait_loops], 0
+	inc [.packet_count]
+	cmp [.packet_count], SOCKET_TIMEOUT
+	jg .error_free
+
+.receive_udp_loop:
+	inc [.wait_loops]
+	cmp [.wait_loops], SOCKET_TIMEOUT
+	jge .receive_udp_start
+
+	mov edi, [.packet]
+	call net_receive
+
+	cmp eax, -1
+	je .receive_udp_loop
+
+	cmp eax, 0
+	jne .check_udp_received
+
+	jmp .receive_udp_loop
+
+.check_udp_received:
+	mov [.total_size], eax
+
+	; destination has to be our MAC
+	mov esi, [.packet]
+	mov edi, my_mac
+	mov ecx, 6
+	rep cmpsb
+	jne .udp_handle_other
+
+	; IP packet?
+	mov esi, [.packet]
+	mov ax, [esi+12]
+	xchg al, ah		; fucking big endian
+	cmp ax, IP_PROTOCOL_TYPE
+	jne .udp_handle_other
+
+	add esi, ETHERNET_HEADER_SIZE
+	mov eax, [esi+12]
+	cmp eax, [.ip]		; is the source IP the remote host we connected with?
+	jne .udp_handle_other
+
+	mov eax, [esi+16]
+	cmp eax, [my_ip]	; is the destination IP us?
+	jne .udp_handle_other
+
+	; is it UDP at all?
+	mov al, [esi+9]
+	cmp al, UDP_PROTOCOL_TYPE
+	jne .udp_handle_other
+
+	; skip over to the UDP header
+	mov al, [esi]			; IP header version and size
+	and eax, 0x0F			; keep size only
+	shl eax, 2			; mul 4
+	add esi, eax
+
+	; esi = udp header
+	; check the source and destination ports
+	mov edi, [.socket]
+	shl edi, 5
+	add edi, [sockets]
+
+	mov ax, [esi]		; source port
+	xchg al, ah
+	cmp ax, [edi+SOCKET_DEST]
+	jne .udp_handle_other
+
+	mov ax, [esi+2]		; destination port
+	xchg al, ah
+	cmp ax, [edi+SOCKET_SOURCE]
+	jne .udp_handle_other
+
+	mov ax, [esi+4]			; size
+	xchg al, ah
+	sub ax, UDP_HEADER_SIZE
+	and eax, 0xFFFF
+	mov [.payload_size], eax
+
+	; copy the packet
+	add esi, UDP_HEADER_SIZE
+	mov edi, [.buffer]
+	mov ecx, [.payload_size]
+	rep movsb
+
+	; okay, we're finished
+	mov eax, [.packet]
+	call kfree
+
+	mov eax, [.payload_size]
+	mov cx, 0
+	mov dl, 0
+	ret
+
+
+.udp_handle_other:
+	; handle a packet that isn't specificially want we want now
+	mov esi, [.packet]
+	mov ecx, [.total_size]
+	mov edi, [net_buffer]
+	rep movsb
+
+	mov ecx, [.total_size]
+	call net_handle_packet
+	jmp .receive_udp_start
 
 .error_free:
 	mov eax, [.packet]
