@@ -31,6 +31,10 @@ netstat:
 align 4
 net_buffer			dd 0
 
+; Free port for TCP/UDP sockets
+align 2
+local_port			dw 32768
+
 ; net_init:
 ; Initializes the network stack
 
@@ -495,6 +499,24 @@ align 4
 .size				dd 0
 .dropping_msg			db "net: dropping packet, total size ",0
 .dropping_msg2			db ", protocol 0x",0
+
+; net_increment_port:
+; Increments the socket port
+; In\	Nothing
+; Out\	AX = Port number
+
+net_increment_port:
+	add [local_port], 2
+	cmp [local_port], 65000
+	jge .reset
+
+	mov ax, [local_port]
+	ret
+
+.reset:
+	mov [local_port], 32768
+	mov ax, 32768
+	ret
 
 
 

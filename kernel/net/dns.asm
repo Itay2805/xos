@@ -24,12 +24,10 @@ DNS_CACHE_SIZE				= 512
 DNS_MAX_CACHE				= 512
 
 DNS_HEADER_SIZE				= 12
-DNS_SOURCE_PORT				= 32768
 DNS_DESTINATION_PORT			= 53
 
 align 2
 dns_id					dw "XS"
-dns_port				dw DNS_SOURCE_PORT
 
 align 4
 dns_cache				dd 0	; keep a cache of all used IP addresses to speed up networking
@@ -157,12 +155,12 @@ dns_request:
 	mov [.packet_size], edi
 
 	; okay, open a socket
-	inc [dns_port]
+	call net_increment_port
 
 	mov al, SOCKET_PROTOCOL_UDP
 	mov ebx, [dns_ip]
 	mov edx, (DNS_DESTINATION_PORT shl 16)
-	mov dx, [dns_port]
+	mov dx, [local_port]
 	call socket_open
 
 	cmp eax, -1

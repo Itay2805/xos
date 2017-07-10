@@ -10,9 +10,6 @@ HTTP_DEBUG_PORT				= 8080		; probably not needed..
 
 HTTP_INITIAL_SEQ			= 0x00000000
 
-align 2
-http_source_port			dw 56000
-
 http_get_string				db "GET "
 http_head_string			db "HEAD "
 http_version_string			db "HTTP/1.1"
@@ -114,8 +111,6 @@ http_copy_path:
 ; Out\	EAX = Buffer, -1 on error
 
 http_head:
-	inc [http_source_port]
-
 	cmp [network_available], 1
 	jne .error
 
@@ -148,10 +143,12 @@ http_head:
 	mov [.ip], eax
 
 	; create a socket connection
+	call net_increment_port
+
 	mov al, SOCKET_PROTOCOL_TCP
 	mov ebx, [.ip]
 	mov edx, (HTTP_DESTINATION_PORT shl 16)
-	mov dx, [http_source_port]
+	mov dx, [local_port]
 	call socket_open
 
 	cmp eax, -1
@@ -353,8 +350,6 @@ align 4
 ; Out\	ECX = Buffer size, including HTTP headers
 
 http_get:
-	inc [http_source_port]
-
 	cmp [network_available], 1
 	jne .error
 
@@ -387,10 +382,12 @@ http_get:
 	mov [.ip], eax
 
 	; create a socket connection
+	call net_increment_port
+
 	mov al, SOCKET_PROTOCOL_TCP
 	mov ebx, [.ip]
 	mov edx, (HTTP_DESTINATION_PORT shl 16)
-	mov dx, [http_source_port]
+	mov dx, [local_port]
 	call socket_open
 
 	cmp eax, -1
