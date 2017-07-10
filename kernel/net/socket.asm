@@ -626,13 +626,20 @@ socket_read:
 .check_tcp_received:
 	mov [.total_size], eax
 
-	; destination has to be our MAC
+	; destination has to be our MAC or broadcast
+	mov esi, [.packet]
+	mov edi, broadcast_mac
+	mov ecx, 6
+	rep cmpsb
+	je .tcp_good_mac
+
 	mov esi, [.packet]
 	mov edi, my_mac
 	mov ecx, 6
 	rep cmpsb
 	jne .tcp_handle_other
 
+.tcp_good_mac:
 	; packet type has to be IP
 	mov esi, [.packet]
 	mov ax, [esi+12]
@@ -889,13 +896,20 @@ socket_read:
 .check_udp_received:
 	mov [.total_size], eax
 
-	; destination has to be our MAC
+	; destination has to be our MAC or broadcast
+	mov esi, [.packet]
+	mov edi, broadcast_mac
+	mov ecx, 6
+	rep cmpsb
+	je .udp_good_mac
+
 	mov esi, [.packet]
 	mov edi, my_mac
 	mov ecx, 6
 	rep cmpsb
 	jne .udp_handle_other
 
+.udp_good_mac:
 	; IP packet?
 	mov esi, [.packet]
 	mov ax, [esi+12]
@@ -904,14 +918,22 @@ socket_read:
 	jne .udp_handle_other
 
 	add esi, ETHERNET_HEADER_SIZE
+	cmp [.ip], 0xFFFFFFFF	; broadcast
+	je .udp_skip_source
+
 	mov eax, [esi+12]
 	cmp eax, [.ip]		; is the source IP the remote host we connected with?
 	jne .udp_handle_other
+
+.udp_skip_source:
+	cmp dword[my_ip], 0
+	je .udp_skip_destination
 
 	mov eax, [esi+16]
 	cmp eax, [my_ip]	; is the destination IP us?
 	jne .udp_handle_other
 
+.udp_skip_destination:
 	; is it UDP at all?
 	mov al, [esi+9]
 	cmp al, UDP_PROTOCOL_TYPE

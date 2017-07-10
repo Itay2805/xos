@@ -271,13 +271,13 @@ arp_handle:
 	; okay, someone is asking for the MAC of our IP address
 	; save their information --
 	mov esi, [net_buffer]
-	add esi, 6			; source MAC
+	add esi, 22			; source MAC
 	mov edi, .mac
 	mov ecx, 6
 	rep movsb
 
 	mov esi, [net_buffer]
-	mov eax, [esi+14]		; source IP
+	mov eax, [esi+28]		; source IP
 	mov [.ip], eax
 
 	; -- and give them a reply
