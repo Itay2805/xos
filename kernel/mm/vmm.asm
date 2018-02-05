@@ -55,7 +55,7 @@ vmm_init:
 
 	mov eax, VBE_PHYSICAL_BUFFER
 	mov ebx, [screen.framebuffer]
-	mov ecx, 2048
+	mov ecx, VBE_BUFFER_SIZE/4096
 	mov dl, PAGE_PRESENT OR PAGE_WRITEABLE
 	call vmm_map_memory
 

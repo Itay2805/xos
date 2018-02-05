@@ -16,9 +16,9 @@ xOS is a graphical operating system written for the PC entirely in assembly lang
 * **Networking:** Realtek 8139 and Intel PRO/1000 cards.
 * **Others:** PCI, ACPI, and other basic PC hardware.
 
-## To-do list
+## TO-DO List
 * **USB:** Add support for USB 2.0 and 3.0, as well as USB mass storage devices.
-* **Networking:** Improve the networking stack, and write/port drivers for more ethernet cards (Realtek 8169 and AMD PCNET).
+* **Networking:** Rewrite the networking stack, and write/port drivers for more ethernet cards (Realtek 8169 and AMD PC-NET).
 * **Sound:** Write drivers for common sound cards (AC97 and Intel HDA) and a basic WAV player. (Bonus task: add MP3 player too.)
 * **General applications:** Write a text editor and a file manager.
 
